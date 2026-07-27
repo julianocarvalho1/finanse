@@ -359,21 +359,42 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
     );
 
     final String message = _isEditing
-        ? 'Gasto de $formattedAmount atualizado em '
-              '${savedExpense.categoryName}.'
-        : 'Gasto de $formattedAmount salvo em '
-              '${savedExpense.categoryName}.';
+        ? '$formattedAmount atualizado em ${savedExpense.categoryName}.'
+        : '$formattedAmount salvo em ${savedExpense.categoryName}.';
 
     messenger.clearSnackBars();
 
     messenger.showSnackBar(
       SnackBar(
         duration: const Duration(seconds: 5),
+        persist: false,
+        showCloseIcon: false,
+        dismissDirection: DismissDirection.down,
+
+        // Impede que o botão "Desfazer" seja jogado para outra linha.
+        actionOverflowThreshold: 1,
+
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
+
         content: Row(
+          mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            const Icon(Icons.check_circle_rounded, color: Colors.white),
+            const Icon(
+              Icons.check_circle_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
             const SizedBox(width: AppSpacing.sm),
-            Expanded(child: Text(message)),
+            Expanded(
+              child: Text(
+                message,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         action: SnackBarAction(

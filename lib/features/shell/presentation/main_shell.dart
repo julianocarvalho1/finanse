@@ -34,6 +34,9 @@ class _MainShellState extends State<MainShell> {
       return;
     }
 
+    // Fecha qualquer mensagem antes de trocar de página.
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
     setState(() {
       _currentIndex = index;
     });
