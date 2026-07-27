@@ -64,44 +64,37 @@ abstract final class AppTheme {
   }) {
     final Color foregroundOnPrimary = _foregroundFor(seedColor);
 
-    final ColorScheme colorScheme = ColorScheme.fromSeed(
-      seedColor: seedColor,
-      brightness: brightness,
-    ).copyWith(
-      primary: seedColor,
-      onPrimary: foregroundOnPrimary,
-      secondary: seedColor,
-      onSecondary: foregroundOnPrimary,
-      surface: surfaceColor,
-      onSurface: textPrimaryColor,
-      error: AppColors.error,
-      onError: Colors.white,
-      outline: borderColor,
-      outlineVariant: dividerColor,
-      surfaceContainerHighest: surfaceSecondaryColor,
-    );
+    final ColorScheme colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: seedColor,
+          brightness: brightness,
+        ).copyWith(
+          primary: seedColor,
+          onPrimary: foregroundOnPrimary,
+          secondary: seedColor,
+          onSecondary: foregroundOnPrimary,
+          surface: surfaceColor,
+          onSurface: textPrimaryColor,
+          error: AppColors.error,
+          onError: Colors.white,
+          outline: borderColor,
+          outlineVariant: dividerColor,
+          surfaceContainerHighest: surfaceSecondaryColor,
+        );
 
     final OutlineInputBorder defaultInputBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
-      borderSide: BorderSide(
-        color: borderColor,
-      ),
+      borderSide: BorderSide(color: borderColor),
     );
 
     final OutlineInputBorder focusedInputBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
-      borderSide: BorderSide(
-        color: seedColor,
-        width: 1.6,
-      ),
+      borderSide: BorderSide(color: seedColor, width: 1.6),
     );
 
     final OutlineInputBorder errorInputBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
-      borderSide: const BorderSide(
-        color: AppColors.error,
-        width: 1.4,
-      ),
+      borderSide: const BorderSide(color: AppColors.error, width: 1.4),
     );
 
     return ThemeData(
@@ -118,21 +111,13 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       // Ícones
       // -----------------------------------------------------------------------
+      iconTheme: IconThemeData(color: textSecondaryColor, size: 22),
 
-      iconTheme: IconThemeData(
-        color: textSecondaryColor,
-        size: 22,
-      ),
-
-      primaryIconTheme: IconThemeData(
-        color: foregroundOnPrimary,
-        size: 22,
-      ),
+      primaryIconTheme: IconThemeData(color: foregroundOnPrimary, size: 22),
 
       // -----------------------------------------------------------------------
       // Barra superior
       // -----------------------------------------------------------------------
-
       appBarTheme: AppBarThemeData(
         backgroundColor: Colors.transparent,
         foregroundColor: textPrimaryColor,
@@ -141,18 +126,13 @@ abstract final class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: true,
         titleTextStyle: textTheme.titleLarge,
-        iconTheme: IconThemeData(
-          color: textPrimaryColor,
-        ),
-        actionsIconTheme: IconThemeData(
-          color: textPrimaryColor,
-        ),
+        iconTheme: IconThemeData(color: textPrimaryColor),
+        actionsIconTheme: IconThemeData(color: textPrimaryColor),
       ),
 
       // -----------------------------------------------------------------------
       // Cartões
       // -----------------------------------------------------------------------
-
       cardTheme: CardThemeData(
         color: surfaceColor,
         surfaceTintColor: Colors.transparent,
@@ -161,16 +141,13 @@ abstract final class AppTheme {
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-          side: BorderSide(
-            color: borderColor,
-          ),
+          side: BorderSide(color: borderColor),
         ),
       ),
 
       // -----------------------------------------------------------------------
       // Campos de texto
       // -----------------------------------------------------------------------
-
       inputDecorationTheme: InputDecorationThemeData(
         filled: true,
         fillColor: surfaceSecondaryColor,
@@ -178,51 +155,34 @@ abstract final class AppTheme {
           horizontal: AppSpacing.md,
           vertical: AppSpacing.md,
         ),
-        labelStyle: textTheme.bodyMedium?.copyWith(
-          color: textSecondaryColor,
-        ),
+        labelStyle: textTheme.bodyMedium?.copyWith(color: textSecondaryColor),
         floatingLabelStyle: textTheme.bodyMedium?.copyWith(
           color: seedColor,
           fontWeight: FontWeight.w600,
         ),
-        hintStyle: textTheme.bodyMedium?.copyWith(
-          color: textMutedColor,
-        ),
-        helperStyle: textTheme.bodySmall?.copyWith(
-          color: textMutedColor,
-        ),
-        errorStyle: textTheme.bodySmall?.copyWith(
-          color: AppColors.error,
-        ),
+        hintStyle: textTheme.bodyMedium?.copyWith(color: textMutedColor),
+        helperStyle: textTheme.bodySmall?.copyWith(color: textMutedColor),
+        errorStyle: textTheme.bodySmall?.copyWith(color: AppColors.error),
         prefixIconColor: textMutedColor,
         suffixIconColor: textMutedColor,
         border: defaultInputBorder,
         enabledBorder: defaultInputBorder,
         disabledBorder: defaultInputBorder.copyWith(
-          borderSide: BorderSide(
-            color: disabledColor.withOpacity(0.45),
-          ),
+          borderSide: BorderSide(color: disabledColor.withOpacity(0.45)),
         ),
         focusedBorder: focusedInputBorder,
         errorBorder: errorInputBorder,
         focusedErrorBorder: errorInputBorder.copyWith(
-          borderSide: const BorderSide(
-            color: AppColors.error,
-            width: 1.8,
-          ),
+          borderSide: const BorderSide(color: AppColors.error, width: 1.8),
         ),
       ),
 
       // -----------------------------------------------------------------------
       // Botão elevado
       // -----------------------------------------------------------------------
-
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          minimumSize: const Size(
-            double.infinity,
-            AppSpacing.minimumTouchSize,
-          ),
+          minimumSize: const Size(0, AppSpacing.minimumTouchSize),
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.lg,
             vertical: AppSpacing.md,
@@ -243,13 +203,9 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       // Botão preenchido
       // -----------------------------------------------------------------------
-
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size(
-            double.infinity,
-            AppSpacing.minimumTouchSize,
-          ),
+          minimumSize: const Size(0, AppSpacing.minimumTouchSize),
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.lg,
             vertical: AppSpacing.md,
@@ -268,22 +224,16 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       // Botão com contorno
       // -----------------------------------------------------------------------
-
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(
-            double.infinity,
-            AppSpacing.minimumTouchSize,
-          ),
+          minimumSize: const Size(0, AppSpacing.minimumTouchSize),
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.lg,
             vertical: AppSpacing.md,
           ),
           foregroundColor: seedColor,
           disabledForegroundColor: textMutedColor,
-          side: BorderSide(
-            color: borderColor,
-          ),
+          side: BorderSide(color: borderColor),
           textStyle: textTheme.labelLarge,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
@@ -294,16 +244,13 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       // Botão de texto
       // -----------------------------------------------------------------------
-
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           minimumSize: const Size(
             AppSpacing.minimumTouchSize,
             AppSpacing.minimumTouchSize,
           ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           foregroundColor: seedColor,
           disabledForegroundColor: textMutedColor,
           textStyle: textTheme.labelLarge,
@@ -316,12 +263,9 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       // Botões de ícone
       // -----------------------------------------------------------------------
-
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
-          minimumSize: const Size.square(
-            AppSpacing.iconButtonSize,
-          ),
+          minimumSize: const Size.square(AppSpacing.iconButtonSize),
           foregroundColor: textSecondaryColor,
           disabledForegroundColor: disabledColor,
           shape: RoundedRectangleBorder(
@@ -333,7 +277,6 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       // Botão flutuante
       // -----------------------------------------------------------------------
-
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: seedColor,
         foregroundColor: foregroundOnPrimary,
@@ -341,13 +284,11 @@ abstract final class AppTheme {
         focusElevation: 4,
         hoverElevation: 4,
         highlightElevation: 5,
-        shape: const CircleBorder(),
       ),
 
       // -----------------------------------------------------------------------
       // Barra de navegação inferior antiga
       // -----------------------------------------------------------------------
-
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: navigationColor,
         selectedItemColor: seedColor,
@@ -368,7 +309,6 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       // Barra de navegação Material 3
       // -----------------------------------------------------------------------
-
       navigationBarTheme: NavigationBarThemeData(
         height: AppSpacing.bottomNavigationHeight,
         backgroundColor: navigationColor,
@@ -376,32 +316,31 @@ abstract final class AppTheme {
         elevation: 0,
         indicatorColor: seedColor.withOpacity(0.16),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        iconTheme: WidgetStateProperty.resolveWith<IconThemeData>(
-              (Set<WidgetState> states) {
-            final bool selected = states.contains(WidgetState.selected);
+        iconTheme: WidgetStateProperty.resolveWith<IconThemeData>((
+          Set<WidgetState> states,
+        ) {
+          final bool selected = states.contains(WidgetState.selected);
 
-            return IconThemeData(
-              color: selected ? seedColor : textMutedColor,
-              size: 24,
-            );
-          },
-        ),
-        labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>(
-              (Set<WidgetState> states) {
-            final bool selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected ? seedColor : textMutedColor,
+            size: 24,
+          );
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>((
+          Set<WidgetState> states,
+        ) {
+          final bool selected = states.contains(WidgetState.selected);
 
-            return textTheme.labelSmall!.copyWith(
-              color: selected ? seedColor : textMutedColor,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            );
-          },
-        ),
+          return textTheme.labelSmall!.copyWith(
+            color: selected ? seedColor : textMutedColor,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          );
+        }),
       ),
 
       // -----------------------------------------------------------------------
       // Listas
       // -----------------------------------------------------------------------
-
       listTileTheme: ListTileThemeData(
         iconColor: textSecondaryColor,
         textColor: textPrimaryColor,
@@ -419,7 +358,6 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       // Divisores
       // -----------------------------------------------------------------------
-
       dividerTheme: DividerThemeData(
         color: dividerColor,
         thickness: 1,
@@ -429,20 +367,15 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       // Chips e filtros
       // -----------------------------------------------------------------------
-
       chipTheme: ChipThemeData(
         backgroundColor: surfaceSecondaryColor,
         selectedColor: seedColor.withOpacity(0.16),
         disabledColor: disabledColor.withOpacity(0.20),
-        side: BorderSide(
-          color: borderColor,
-        ),
+        side: BorderSide(color: borderColor),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
         ),
-        labelStyle: textTheme.labelMedium!.copyWith(
-          color: textSecondaryColor,
-        ),
+        labelStyle: textTheme.labelMedium!.copyWith(color: textSecondaryColor),
         secondaryLabelStyle: textTheme.labelMedium!.copyWith(
           color: seedColor,
           fontWeight: FontWeight.w700,
@@ -456,79 +389,69 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       // Caixas de seleção
       // -----------------------------------------------------------------------
-
       checkboxTheme: CheckboxThemeData(
-        checkColor: WidgetStatePropertyAll<Color>(
-          foregroundOnPrimary,
-        ),
-        fillColor: WidgetStateProperty.resolveWith<Color?>(
-              (Set<WidgetState> states) {
-            if (states.contains(WidgetState.disabled)) {
-              return disabledColor.withOpacity(0.35);
-            }
+        checkColor: WidgetStatePropertyAll<Color>(foregroundOnPrimary),
+        fillColor: WidgetStateProperty.resolveWith<Color?>((
+          Set<WidgetState> states,
+        ) {
+          if (states.contains(WidgetState.disabled)) {
+            return disabledColor.withOpacity(0.35);
+          }
 
-            if (states.contains(WidgetState.selected)) {
-              return seedColor;
-            }
+          if (states.contains(WidgetState.selected)) {
+            return seedColor;
+          }
 
-            return Colors.transparent;
-          },
-        ),
-        side: BorderSide(
-          color: borderColor,
-          width: 1.5,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(5),
-        ),
+          return Colors.transparent;
+        }),
+        side: BorderSide(color: borderColor, width: 1.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
       ),
 
       // -----------------------------------------------------------------------
       // Interruptores
       // -----------------------------------------------------------------------
-
       switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith<Color?>(
-              (Set<WidgetState> states) {
-            if (states.contains(WidgetState.disabled)) {
-              return disabledColor;
-            }
+        thumbColor: WidgetStateProperty.resolveWith<Color?>((
+          Set<WidgetState> states,
+        ) {
+          if (states.contains(WidgetState.disabled)) {
+            return disabledColor;
+          }
 
-            if (states.contains(WidgetState.selected)) {
-              return foregroundOnPrimary;
-            }
+          if (states.contains(WidgetState.selected)) {
+            return foregroundOnPrimary;
+          }
 
-            return textMutedColor;
-          },
-        ),
-        trackColor: WidgetStateProperty.resolveWith<Color?>(
-              (Set<WidgetState> states) {
-            if (states.contains(WidgetState.disabled)) {
-              return disabledColor.withOpacity(0.25);
-            }
+          return textMutedColor;
+        }),
+        trackColor: WidgetStateProperty.resolveWith<Color?>((
+          Set<WidgetState> states,
+        ) {
+          if (states.contains(WidgetState.disabled)) {
+            return disabledColor.withOpacity(0.25);
+          }
 
-            if (states.contains(WidgetState.selected)) {
-              return seedColor;
-            }
+          if (states.contains(WidgetState.selected)) {
+            return seedColor;
+          }
 
-            return surfaceSecondaryColor;
-          },
-        ),
-        trackOutlineColor: WidgetStateProperty.resolveWith<Color?>(
-              (Set<WidgetState> states) {
-            if (states.contains(WidgetState.selected)) {
-              return seedColor;
-            }
+          return surfaceSecondaryColor;
+        }),
+        trackOutlineColor: WidgetStateProperty.resolveWith<Color?>((
+          Set<WidgetState> states,
+        ) {
+          if (states.contains(WidgetState.selected)) {
+            return seedColor;
+          }
 
-            return borderColor;
-          },
-        ),
+          return borderColor;
+        }),
       ),
 
       // -----------------------------------------------------------------------
       // Indicadores de carregamento e progresso
       // -----------------------------------------------------------------------
-
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: seedColor,
         linearTrackColor: surfaceSecondaryColor,
@@ -538,7 +461,6 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       // Modais inferiores
       // -----------------------------------------------------------------------
-
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: surfaceColor,
         modalBackgroundColor: surfaceColor,
@@ -558,7 +480,6 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       // Caixas de diálogo
       // -----------------------------------------------------------------------
-
       dialogTheme: DialogThemeData(
         backgroundColor: surfaceColor,
         surfaceTintColor: Colors.transparent,
@@ -574,7 +495,6 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       // Mensagens de sucesso e erro
       // -----------------------------------------------------------------------
-
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: brightness == Brightness.dark
@@ -600,7 +520,6 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       // Menus
       // -----------------------------------------------------------------------
-
       popupMenuTheme: PopupMenuThemeData(
         color: surfaceColor,
         surfaceTintColor: Colors.transparent,
@@ -608,9 +527,7 @@ abstract final class AppTheme {
         elevation: 5,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
-          side: BorderSide(
-            color: borderColor,
-          ),
+          side: BorderSide(color: borderColor),
         ),
       ),
 

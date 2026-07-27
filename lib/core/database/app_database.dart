@@ -11,7 +11,10 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._init();
 
   static const String _databaseName = 'finanse.db';
-  static const int _databaseVersion = 2;
+  static const int _databaseVersion = 3;
+
+  static const String expensesTable = 'expenses';
+  static const String recurringExpensesTable = 'recurring_expenses';
 
   static Database? _database;
 
@@ -28,10 +31,8 @@ class AppDatabase {
 
   Future<Database> _initDatabase() async {
     final String databaseDirectory = await getDatabasesPath();
-    final String databasePath = join(
-      databaseDirectory,
-      _databaseName,
-    );
+
+    final String databasePath = join(databaseDirectory, _databaseName);
 
     return openDatabase(
       databasePath,
@@ -46,12 +47,43 @@ class AppDatabase {
     await db.execute('PRAGMA foreign_keys = ON');
   }
 
-  Future<void> _createDatabase(
-      Database db,
-      int version,
-      ) async {
+  Future<void> _createDatabase(Database db, int version) async {
+    await _createExpensesTable(db);
+    await _createRecurringExpensesTable(db);
+    await _createIndexes(db);
+  }
+
+  Future<void> _upgradeDatabase(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    if (oldVersion < 2) {
+      await _addColumnWhenMissing(
+        db: db,
+        table: expensesTable,
+        column: 'notes',
+        definition: 'TEXT',
+      );
+    }
+
+    if (oldVersion < 3) {
+      await _createRecurringExpensesTable(db);
+
+      await _addColumnWhenMissing(
+        db: db,
+        table: expensesTable,
+        column: 'recurringExpenseId',
+        definition: 'TEXT',
+      );
+    }
+
+    await _createIndexes(db);
+  }
+
+  Future<void> _createExpensesTable(Database db) async {
     await db.execute('''
-      CREATE TABLE expenses (
+      CREATE TABLE IF NOT EXISTS $expensesTable (
         id TEXT PRIMARY KEY,
         amount REAL NOT NULL,
         categoryName TEXT NOT NULL,
@@ -60,40 +92,90 @@ class AppDatabase {
         date TEXT NOT NULL,
         paymentMethod TEXT,
         isRecurring INTEGER NOT NULL DEFAULT 0,
+        recurringExpenseId TEXT,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL
       )
     ''');
-
-    await _createIndexes(db);
   }
 
-  Future<void> _upgradeDatabase(
-      Database db,
-      int oldVersion,
-      int newVersion,
-      ) async {
-    if (oldVersion < 2) {
-      await _addColumnWhenMissing(
-        db: db,
-        table: 'expenses',
-        column: 'notes',
-        definition: 'TEXT',
-      );
+  Future<void> _createRecurringExpensesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $recurringExpensesTable (
+        id TEXT PRIMARY KEY,
+        amount REAL NOT NULL CHECK(amount > 0),
+        categoryName TEXT NOT NULL,
+        description TEXT,
+        notes TEXT,
+        paymentMethod TEXT,
 
-      await _createIndexes(db);
-    }
+        frequency TEXT NOT NULL CHECK(
+          frequency IN (
+            'weekly',
+            'biweekly',
+            'monthly',
+            'yearly',
+            'custom'
+          )
+        ),
+
+        customIntervalDays INTEGER,
+
+        nextDate TEXT NOT NULL,
+
+        isActive INTEGER NOT NULL DEFAULT 1 CHECK(
+          isActive IN (0, 1)
+        ),
+
+        lastRegisteredAt TEXT,
+
+        registeredCount INTEGER NOT NULL DEFAULT 0 CHECK(
+          registeredCount >= 0
+        ),
+
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+
+        CHECK(
+          frequency != 'custom'
+          OR (
+            customIntervalDays IS NOT NULL
+            AND customIntervalDays > 0
+          )
+        )
+      )
+    ''');
   }
 
   Future<void> _createIndexes(Database db) async {
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_expenses_date
-      ON expenses(date)
+      ON $expensesTable(date)
     ''');
 
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_expenses_category
-      ON expenses(categoryName)
+      ON $expensesTable(categoryName)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_expenses_recurring_id
+      ON $expensesTable(recurringExpenseId)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_recurring_expenses_next_date
+      ON $recurringExpensesTable(nextDate)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_recurring_expenses_active
+      ON $recurringExpensesTable(isActive)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_recurring_expenses_category
+      ON $recurringExpensesTable(categoryName)
     ''');
   }
 
@@ -103,22 +185,21 @@ class AppDatabase {
     required String column,
     required String definition,
   }) async {
-    final List<Map<String, Object?>> tableInformation =
-    await db.rawQuery(
+    final List<Map<String, Object?>> tableInformation = await db.rawQuery(
       'PRAGMA table_info($table)',
     );
 
-    final bool columnAlreadyExists = tableInformation.any(
-          (Map<String, Object?> item) => item['name'] == column,
-    );
+    final bool columnAlreadyExists = tableInformation.any((
+      Map<String, Object?> item,
+    ) {
+      return item['name'] == column;
+    });
 
     if (columnAlreadyExists) {
       return;
     }
 
-    await db.execute(
-      'ALTER TABLE $table ADD COLUMN $column $definition',
-    );
+    await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
   }
 
   Future<void> close() async {
