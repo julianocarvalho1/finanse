@@ -4,27 +4,22 @@ import '../theme/app_colors.dart';
 
 /// Representa o visual de uma categoria financeira.
 class CategoryStyle {
-  const CategoryStyle({
-    required this.icon,
-    required this.color,
-  });
+  const CategoryStyle({required this.icon, required this.color});
 
   final IconData icon;
   final Color color;
 
-  /// Cor suave para fundos de ícones, cartões ou seleções.
+  /// Cor suave para fundos de ícones, cartões e seleções.
   Color backgroundColor({double opacity = 0.14}) {
-    return color.withOpacity(opacity);
+    return color.withValues(alpha: opacity);
   }
 }
 
-/// Centraliza os ícones e as cores de todas as categorias.
+/// Centraliza os ícones e as cores das categorias do aplicativo.
 ///
-/// Use:
-///
-/// final style = CategoryStyles.fromName(expense.category);
-///
-/// Icon(style.icon, color: style.color);
+/// As categorias padrão possuem estilos fixos.
+/// Categorias personalizadas recebem automaticamente uma cor e um ícone
+/// consistentes com base no nome.
 abstract final class CategoryStyles {
   static const CategoryStyle food = CategoryStyle(
     icon: Icons.restaurant_rounded,
@@ -66,12 +61,37 @@ abstract final class CategoryStyles {
     color: AppColors.other,
   );
 
+  static const List<Color> _customColors = <Color>[
+    Color(0xFF26A69A),
+    Color(0xFF5C6BC0),
+    Color(0xFFAB47BC),
+    Color(0xFFEC407A),
+    Color(0xFFEF6C00),
+    Color(0xFF7CB342),
+    Color(0xFF00897B),
+    Color(0xFF3949AB),
+    Color(0xFF8E24AA),
+    Color(0xFFD81B60),
+    Color(0xFFF4511E),
+    Color(0xFF43A047),
+  ];
+
+  static const List<IconData> _customIcons = <IconData>[
+    Icons.label_rounded,
+    Icons.bookmark_rounded,
+    Icons.folder_rounded,
+    Icons.star_rounded,
+    Icons.category_rounded,
+    Icons.widgets_rounded,
+    Icons.hexagon_rounded,
+    Icons.circle_rounded,
+  ];
+
   /// Retorna o estilo correspondente ao nome da categoria.
   ///
   /// A comparação ignora letras maiúsculas, espaços e acentos.
-  /// Categorias personalizadas usam o estilo de "Outros".
   static CategoryStyle fromName(String? categoryName) {
-    final normalizedName = _normalize(categoryName);
+    final String normalizedName = _normalize(categoryName);
 
     switch (normalizedName) {
       case 'alimentacao':
@@ -99,10 +119,13 @@ abstract final class CategoryStyles {
       case 'conta':
         return bills;
 
+      case '':
       case 'outros':
       case 'outro':
-      default:
         return other;
+
+      default:
+        return _customStyleFor(normalizedName);
     }
   }
 
@@ -114,6 +137,30 @@ abstract final class CategoryStyles {
   /// Retorna apenas a cor da categoria.
   static Color colorFor(String? categoryName) {
     return fromName(categoryName).color;
+  }
+
+  static CategoryStyle _customStyleFor(String normalizedName) {
+    final int hash = _stableHash(normalizedName);
+
+    final Color color = _customColors[hash % _customColors.length];
+
+    final IconData icon = _customIcons[hash % _customIcons.length];
+
+    return CategoryStyle(icon: icon, color: color);
+  }
+
+  /// Gera um número estável a partir do nome.
+  ///
+  /// Assim, a mesma categoria mantém o mesmo visual após fechar e reabrir
+  /// o aplicativo.
+  static int _stableHash(String value) {
+    int hash = 0;
+
+    for (final int codeUnit in value.codeUnits) {
+      hash = ((hash * 31) + codeUnit) & 0x7fffffff;
+    }
+
+    return hash;
   }
 
   static String _normalize(String? value) {
