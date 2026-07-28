@@ -1,6 +1,8 @@
 plugins {
     id("com.android.application")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+
+    // O Flutter Gradle Plugin deve permanecer depois
+    // do plugin do Android.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -10,8 +12,7 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        // Necessário para o agendamento de notificações em versões antigas
-        // e atuais do Android.
+        // Necessário para as notificações programadas.
         isCoreLibraryDesugaringEnabled = true
 
         sourceCompatibility = JavaVersion.VERSION_17
@@ -21,20 +22,21 @@ android {
     defaultConfig {
         applicationId = "com.finanse.finanse"
 
-        minSdk = flutter.minSdkVersion
+        // O local_auth 3 exige Android SDK 24 ou superior.
+        minSdk = 24
+
         targetSdk = flutter.targetSdkVersion
 
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // Evita problemas de quantidade de métodos após adicionar plugins.
         multiDexEnabled = true
     }
 
     buildTypes {
         release {
-            // Temporariamente utiliza a assinatura de debug.
-            // A assinatura definitiva será configurada na etapa de lançamento.
+            // A assinatura definitiva será configurada
+            // na etapa de lançamento.
             signingConfig = signingConfigs.getByName("debug")
         }
     }

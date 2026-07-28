@@ -63,10 +63,7 @@ class Expense {
       paymentMethod: _parseNullableString(map['paymentMethod']),
       isRecurring: _parseBoolean(map['isRecurring']),
       createdAt: parsedCreatedAt,
-      updatedAt: _parseDate(
-        map['updatedAt'],
-        fallback: parsedCreatedAt,
-      ),
+      updatedAt: _parseDate(map['updatedAt'], fallback: parsedCreatedAt),
     );
   }
 
@@ -92,9 +89,7 @@ class Expense {
       description: identical(description, _notProvided)
           ? this.description
           : description as String?,
-      notes: identical(notes, _notProvided)
-          ? this.notes
-          : notes as String?,
+      notes: identical(notes, _notProvided) ? this.notes : notes as String?,
       date: date ?? this.date,
       paymentMethod: identical(paymentMethod, _notProvided)
           ? this.paymentMethod
@@ -122,18 +117,14 @@ class Expense {
       return value != 0;
     }
 
-    final String normalizedValue =
-        value?.toString().trim().toLowerCase() ?? '';
+    final String normalizedValue = value?.toString().trim().toLowerCase() ?? '';
 
     return normalizedValue == 'true' ||
         normalizedValue == '1' ||
         normalizedValue == 'yes';
   }
 
-  static DateTime _parseDate(
-      Object? value, {
-        required DateTime fallback,
-      }) {
+  static DateTime _parseDate(Object? value, {required DateTime fallback}) {
     return DateTime.tryParse(value?.toString() ?? '') ?? fallback;
   }
 

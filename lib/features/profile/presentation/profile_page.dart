@@ -13,6 +13,7 @@ import 'export_page.dart';
 import '../../../../core/notifications/notification_service.dart';
 import '../../recurring_expenses/data/recurring_notification_scheduler.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../../../../core/security/biometric_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -28,7 +29,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
   bool _useBiometrics = false;
   bool _notificationsEnabled = false;
+
   bool _isUpdatingNotifications = false;
+  bool _isUpdatingBiometrics = false;
 
   @override
   void initState() {
@@ -167,6 +170,123 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         setState(() {
           _isUpdatingNotifications = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _changeBiometrics(bool newValue) async {
+    if (_isUpdatingBiometrics || newValue == _useBiometrics) {
+      return;
+    }
+
+    HapticFeedback.selectionClick();
+
+    setState(() {
+      _isUpdatingBiometrics = true;
+    });
+
+    try {
+      final SharedPreferences preferences =
+          await SharedPreferences.getInstance();
+
+      if (newValue) {
+        final BiometricAvailabilityResult availability = await BiometricService
+            .instance
+            .checkAvailability();
+
+        if (!availability.isAvailable) {
+          if (!mounted) {
+            return;
+          }
+
+          _showProfileMessage(availability.message, isError: true);
+
+          return;
+        }
+
+        final BiometricAuthenticationResult result = await BiometricService
+            .instance
+            .authenticate(
+              reason:
+                  'Confirme sua biometria para ativar a proteção do Finanse.',
+            );
+
+        if (!result.authenticated) {
+          if (!mounted) {
+            return;
+          }
+
+          if (!result.wasCanceled) {
+            _showProfileMessage(result.message, isError: true);
+          }
+
+          return;
+        }
+
+        await preferences.setBool('useBiometrics', true);
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _useBiometrics = true;
+        });
+
+        _showProfileMessage('Bloqueio por biometria ativado.');
+
+        return;
+      }
+
+      final BiometricAuthenticationResult result = await BiometricService
+          .instance
+          .authenticate(
+            reason:
+                'Confirme sua biometria para desativar a proteção do Finanse.',
+          );
+
+      if (!result.authenticated) {
+        if (!mounted) {
+          return;
+        }
+
+        if (!result.wasCanceled) {
+          _showProfileMessage(result.message, isError: true);
+        }
+
+        return;
+      }
+
+      await preferences.setBool('useBiometrics', false);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _useBiometrics = false;
+      });
+
+      _showProfileMessage('Bloqueio por biometria desativado.');
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Erro ao alterar a biometria: '
+        '$error\n$stackTrace',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _showProfileMessage(
+        'Não foi possível alterar o bloqueio biométrico.',
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUpdatingBiometrics = false;
         });
       }
     }
@@ -939,21 +1059,16 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildSwitchTile(
               icon: Icons.fingerprint_rounded,
               title: 'Bloqueio por Biometria',
-              subtitle: 'Exigir digital/Face ID ao abrir o app',
+              subtitle: _isUpdatingBiometrics
+                  ? 'Verificando sua identidade...'
+                  : _useBiometrics
+                  ? 'Proteção ativa ao abrir o aplicativo'
+                  : 'Exigir digital ou reconhecimento facial',
               value: _useBiometrics,
-              onChanged: (bool newValue) async {
-                final SharedPreferences preferences =
-                    await SharedPreferences.getInstance();
-
-                await preferences.setBool('useBiometrics', newValue);
-
-                if (!mounted) {
-                  return;
+              onChanged: (bool newValue) {
+                if (!_isUpdatingBiometrics) {
+                  _changeBiometrics(newValue);
                 }
-
-                setState(() {
-                  _useBiometrics = newValue;
-                });
               },
             ),
           ], isDark),

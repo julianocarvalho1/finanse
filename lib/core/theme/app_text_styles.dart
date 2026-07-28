@@ -144,11 +144,11 @@ abstract final class AppTextStyles {
 
   /// Estilo específico para valores financeiros menores.
   static TextStyle financialValue(
-      BuildContext context, {
-        double fontSize = 18,
-        FontWeight fontWeight = FontWeight.w700,
-        Color? color,
-      }) {
+    BuildContext context, {
+    double fontSize = 18,
+    FontWeight fontWeight = FontWeight.w700,
+    Color? color,
+  }) {
     return TextStyle(
       fontFamily: fontFamily,
       fontSize: fontSize,
@@ -160,10 +160,7 @@ abstract final class AppTextStyles {
   }
 
   /// Estilo para valores positivos.
-  static TextStyle positiveValue(
-      BuildContext context, {
-        double fontSize = 14,
-      }) {
+  static TextStyle positiveValue(BuildContext context, {double fontSize = 14}) {
     return financialValue(
       context,
       fontSize: fontSize,
@@ -173,10 +170,7 @@ abstract final class AppTextStyles {
   }
 
   /// Estilo para erros, gastos acima do limite e ações destrutivas.
-  static TextStyle negativeValue(
-      BuildContext context, {
-        double fontSize = 14,
-      }) {
+  static TextStyle negativeValue(BuildContext context, {double fontSize = 14}) {
     return financialValue(
       context,
       fontSize: fontSize,

@@ -11,7 +11,10 @@ class ThemeState {
 
 class ThemeNotifier extends ValueNotifier<ThemeState> {
   // Padrão inicial: Verde e "Acompanhar o Sistema"
-  ThemeNotifier() : super(ThemeState(color: const Color(0xFF22C55E), mode: ThemeMode.system)) {
+  ThemeNotifier()
+    : super(
+        ThemeState(color: const Color(0xFF22C55E), mode: ThemeMode.system),
+      ) {
     _loadTheme();
   }
 

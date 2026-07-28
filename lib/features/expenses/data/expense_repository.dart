@@ -8,9 +8,8 @@ import '../domain/expense.dart';
 /// As telas não devem acessar o banco diretamente. Toda inclusão, edição,
 /// exclusão ou consulta de despesas deve passar por este repositório.
 class ExpenseRepository {
-  ExpenseRepository({
-    AppDatabase? appDatabase,
-  }) : _appDatabase = appDatabase ?? AppDatabase.instance;
+  ExpenseRepository({AppDatabase? appDatabase})
+    : _appDatabase = appDatabase ?? AppDatabase.instance;
 
   static const String _tableName = 'expenses';
 
@@ -45,9 +44,7 @@ class ExpenseRepository {
       _tableName,
       expense.toMap(),
       where: 'id = ?',
-      whereArgs: <Object?>[
-        expense.id,
-      ],
+      whereArgs: <Object?>[expense.id],
       conflictAlgorithm: ConflictAlgorithm.abort,
     );
 
@@ -64,47 +61,36 @@ class ExpenseRepository {
   Future<void> saveExpense(Expense expense) async {
     final Database db = await _database;
 
-    await db.transaction(
-          (Transaction transaction) async {
-        final List<Map<String, Object?>> existingRows =
-        await transaction.query(
-          _tableName,
-          columns: <String>[
-            'id',
-          ],
-          where: 'id = ?',
-          whereArgs: <Object?>[
-            expense.id,
-          ],
-          limit: 1,
-        );
+    await db.transaction((Transaction transaction) async {
+      final List<Map<String, Object?>> existingRows = await transaction.query(
+        _tableName,
+        columns: <String>['id'],
+        where: 'id = ?',
+        whereArgs: <Object?>[expense.id],
+        limit: 1,
+      );
 
-        if (existingRows.isEmpty) {
-          await transaction.insert(
-            _tableName,
-            expense.toMap(),
-            conflictAlgorithm: ConflictAlgorithm.abort,
-          );
-          return;
-        }
-
-        final int affectedRows = await transaction.update(
+      if (existingRows.isEmpty) {
+        await transaction.insert(
           _tableName,
           expense.toMap(),
-          where: 'id = ?',
-          whereArgs: <Object?>[
-            expense.id,
-          ],
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
+        return;
+      }
 
-        if (affectedRows == 0) {
-          throw StateError(
-            'Não foi possível salvar as alterações do gasto.',
-          );
-        }
-      },
-    );
+      final int affectedRows = await transaction.update(
+        _tableName,
+        expense.toMap(),
+        where: 'id = ?',
+        whereArgs: <Object?>[expense.id],
+        conflictAlgorithm: ConflictAlgorithm.abort,
+      );
+
+      if (affectedRows == 0) {
+        throw StateError('Não foi possível salvar as alterações do gasto.');
+      }
+    });
   }
 
   /// Busca uma despesa específica pelo ID.
@@ -114,9 +100,7 @@ class ExpenseRepository {
     final List<Map<String, Object?>> rows = await db.query(
       _tableName,
       where: 'id = ?',
-      whereArgs: <Object?>[
-        id,
-      ],
+      whereArgs: <Object?>[id],
       limit: 1,
     );
 
@@ -131,28 +115,18 @@ class ExpenseRepository {
   Future<List<Expense>> getTodayExpenses() async {
     final DateTime now = DateTime.now();
     final DateTime start = _startOfDay(now);
-    final DateTime end = start.add(
-      const Duration(days: 1),
-    );
+    final DateTime end = start.add(const Duration(days: 1));
 
-    return getExpensesBetween(
-      start: start,
-      endExclusive: end,
-    );
+    return getExpensesBetween(start: start, endExclusive: end);
   }
 
   /// Retorna o total gasto no dia atual.
   Future<double> getTodayTotal() async {
     final DateTime now = DateTime.now();
     final DateTime start = _startOfDay(now);
-    final DateTime end = start.add(
-      const Duration(days: 1),
-    );
+    final DateTime end = start.add(const Duration(days: 1));
 
-    return getTotalBetween(
-      start: start,
-      endExclusive: end,
-    );
+    return getTotalBetween(start: start, endExclusive: end);
   }
 
   /// Retorna todas as despesas, da mais recente para a mais antiga.
@@ -165,9 +139,7 @@ class ExpenseRepository {
     );
 
     return rows
-        .map(
-          (Map<String, Object?> row) => Expense.fromMap(row),
-    )
+        .map((Map<String, Object?> row) => Expense.fromMap(row))
         .toList(growable: false);
   }
 
@@ -185,48 +157,27 @@ class ExpenseRepository {
     switch (period.trim().toLowerCase()) {
       case 'hoje':
         final DateTime start = _startOfDay(now);
-        final DateTime end = start.add(
-          const Duration(days: 1),
-        );
+        final DateTime end = start.add(const Duration(days: 1));
 
-        return getExpensesBetween(
-          start: start,
-          endExclusive: end,
-        );
+        return getExpensesBetween(start: start, endExclusive: end);
 
       case 'semana':
-      // Hoje mais os seis dias anteriores.
+        // Hoje mais os seis dias anteriores.
         final DateTime start = _startOfDay(
-          now.subtract(
-            const Duration(days: 6),
-          ),
+          now.subtract(const Duration(days: 6)),
         );
 
-        final DateTime end = _startOfDay(now).add(
-          const Duration(days: 1),
-        );
+        final DateTime end = _startOfDay(now).add(const Duration(days: 1));
 
-        return getExpensesBetween(
-          start: start,
-          endExclusive: end,
-        );
+        return getExpensesBetween(start: start, endExclusive: end);
 
       case 'mês':
       case 'mes':
-        final DateTime start = DateTime(
-          now.year,
-          now.month,
-        );
+        final DateTime start = DateTime(now.year, now.month);
 
-        final DateTime end = DateTime(
-          now.year,
-          now.month + 1,
-        );
+        final DateTime end = DateTime(now.year, now.month + 1);
 
-        return getExpensesBetween(
-          start: start,
-          endExclusive: end,
-        );
+        return getExpensesBetween(start: start, endExclusive: end);
 
       default:
         return getAllExpenses();
@@ -242,10 +193,7 @@ class ExpenseRepository {
     required DateTime start,
     required DateTime endExclusive,
   }) async {
-    _validateDateRange(
-      start: start,
-      endExclusive: endExclusive,
-    );
+    _validateDateRange(start: start, endExclusive: endExclusive);
 
     final Database db = await _database;
 
@@ -260,9 +208,7 @@ class ExpenseRepository {
     );
 
     return rows
-        .map(
-          (Map<String, Object?> row) => Expense.fromMap(row),
-    )
+        .map((Map<String, Object?> row) => Expense.fromMap(row))
         .toList(growable: false);
   }
 
@@ -271,10 +217,7 @@ class ExpenseRepository {
     required DateTime start,
     required DateTime endExclusive,
   }) async {
-    _validateDateRange(
-      start: start,
-      endExclusive: endExclusive,
-    );
+    _validateDateRange(start: start, endExclusive: endExclusive);
 
     final Database db = await _database;
 
@@ -284,10 +227,7 @@ class ExpenseRepository {
       FROM $_tableName
       WHERE date >= ? AND date < ?
       ''',
-      <Object?>[
-        start.toIso8601String(),
-        endExclusive.toIso8601String(),
-      ],
+      <Object?>[start.toIso8601String(), endExclusive.toIso8601String()],
     );
 
     if (result.isEmpty) {
@@ -300,10 +240,7 @@ class ExpenseRepository {
       return totalValue.toDouble();
     }
 
-    return double.tryParse(
-      totalValue?.toString() ?? '',
-    ) ??
-        0;
+    return double.tryParse(totalValue?.toString() ?? '') ?? 0;
   }
 
   /// Exclui uma despesa pelo ID.
@@ -313,9 +250,7 @@ class ExpenseRepository {
     final int affectedRows = await db.delete(
       _tableName,
       where: 'id = ?',
-      whereArgs: <Object?>[
-        id,
-      ],
+      whereArgs: <Object?>[id],
     );
 
     if (affectedRows == 0) {
@@ -331,44 +266,34 @@ class ExpenseRepository {
   Future<Expense> deleteExpenseAndReturn(String id) async {
     final Database db = await _database;
 
-    return db.transaction(
-          (Transaction transaction) async {
-        final List<Map<String, Object?>> rows = await transaction.query(
-          _tableName,
-          where: 'id = ?',
-          whereArgs: <Object?>[
-            id,
-          ],
-          limit: 1,
+    return db.transaction((Transaction transaction) async {
+      final List<Map<String, Object?>> rows = await transaction.query(
+        _tableName,
+        where: 'id = ?',
+        whereArgs: <Object?>[id],
+        limit: 1,
+      );
+
+      if (rows.isEmpty) {
+        throw StateError(
+          'Não foi possível excluir o gasto porque ele não foi encontrado.',
         );
+      }
 
-        if (rows.isEmpty) {
-          throw StateError(
-            'Não foi possível excluir o gasto porque ele não foi encontrado.',
-          );
-        }
+      final Expense expense = Expense.fromMap(rows.first);
 
-        final Expense expense = Expense.fromMap(
-          rows.first,
-        );
+      final int affectedRows = await transaction.delete(
+        _tableName,
+        where: 'id = ?',
+        whereArgs: <Object?>[id],
+      );
 
-        final int affectedRows = await transaction.delete(
-          _tableName,
-          where: 'id = ?',
-          whereArgs: <Object?>[
-            id,
-          ],
-        );
+      if (affectedRows == 0) {
+        throw StateError('Não foi possível excluir o gasto.');
+      }
 
-        if (affectedRows == 0) {
-          throw StateError(
-            'Não foi possível excluir o gasto.',
-          );
-        }
-
-        return expense;
-      },
-    );
+      return expense;
+    });
   }
 
   /// Verifica se já existe um gasto muito parecido registrado recentemente.
@@ -385,19 +310,13 @@ class ExpenseRepository {
 
     final List<Map<String, Object?>> rows = await db.query(
       _tableName,
-      columns: <String>[
-        'id',
-      ],
+      columns: <String>['id'],
       where: '''
         amount = ?
         AND categoryName = ?
         AND createdAt >= ?
       ''',
-      whereArgs: <Object?>[
-        amount,
-        categoryName,
-        minimumDate.toIso8601String(),
-      ],
+      whereArgs: <Object?>[amount, categoryName, minimumDate.toIso8601String()],
       limit: 1,
     );
 
@@ -405,11 +324,7 @@ class ExpenseRepository {
   }
 
   static DateTime _startOfDay(DateTime date) {
-    return DateTime(
-      date.year,
-      date.month,
-      date.day,
-    );
+    return DateTime(date.year, date.month, date.day);
   }
 
   static void _validateDateRange({
@@ -417,9 +332,7 @@ class ExpenseRepository {
     required DateTime endExclusive,
   }) {
     if (!endExclusive.isAfter(start)) {
-      throw ArgumentError(
-        'A data final precisa ser posterior à data inicial.',
-      );
+      throw ArgumentError('A data final precisa ser posterior à data inicial.');
     }
   }
 }

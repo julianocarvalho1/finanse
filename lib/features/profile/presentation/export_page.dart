@@ -42,9 +42,15 @@ class _ExportPageState extends State<ExportPage> {
     // --- LÓGICA DE CORES DINÂMICAS ---
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? AppColors.darkBackground : const Color(0xFFF8F9FA);
-    final textPrimary = isDark ? AppColors.darkTextPrimary : const Color(0xFF1A1D1F);
-    final textSecondary = isDark ? AppColors.darkTextSecondary : const Color(0xFF535F66);
-    final textMuted = isDark ? AppColors.darkTextMuted : const Color(0xFF8A959D);
+    final textPrimary = isDark
+        ? AppColors.darkTextPrimary
+        : const Color(0xFF1A1D1F);
+    final textSecondary = isDark
+        ? AppColors.darkTextSecondary
+        : const Color(0xFF535F66);
+    final textMuted = isDark
+        ? AppColors.darkTextMuted
+        : const Color(0xFF8A959D);
     final primaryColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
@@ -53,7 +59,14 @@ class _ExportPageState extends State<ExportPage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: IconThemeData(color: textPrimary),
-        title: Text('Exportar Relatório', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20, color: textPrimary)),
+        title: Text(
+          'Exportar Relatório',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 20,
+            color: textPrimary,
+          ),
+        ),
         centerTitle: true,
       ),
       body: ListView(
@@ -65,12 +78,36 @@ class _ExportPageState extends State<ExportPage> {
           ),
           const SizedBox(height: 32),
 
-          Text('FORMATO DO ARQUIVO', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textMuted, letterSpacing: 1.2)),
+          Text(
+            'FORMATO DO ARQUIVO',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: textMuted,
+              letterSpacing: 1.2,
+            ),
+          ),
           const SizedBox(height: 16),
 
-          _buildFormatOption('CSV', 'Ideal para planilhas (Excel, Sheets)', Icons.table_chart_rounded, isDark, textPrimary, textSecondary, primaryColor),
+          _buildFormatOption(
+            'CSV',
+            'Ideal para planilhas (Excel, Sheets)',
+            Icons.table_chart_rounded,
+            isDark,
+            textPrimary,
+            textSecondary,
+            primaryColor,
+          ),
           const SizedBox(height: 12),
-          _buildFormatOption('PDF', 'Ideal para leitura e impressão', Icons.picture_as_pdf_rounded, isDark, textPrimary, textSecondary, primaryColor),
+          _buildFormatOption(
+            'PDF',
+            'Ideal para leitura e impressão',
+            Icons.picture_as_pdf_rounded,
+            isDark,
+            textPrimary,
+            textSecondary,
+            primaryColor,
+          ),
 
           const SizedBox(height: 48),
 
@@ -79,19 +116,43 @@ class _ExportPageState extends State<ExportPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryColor,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
             child: _isExporting
-                ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-            // A CORREÇÃO FOI FEITA AQUI NESTA LINHA: adicionamos o style:
-                : Text('Gerar Arquivo $_selectedFormat', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+                ? const SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 3,
+                    ),
+                  )
+                // A CORREÇÃO FOI FEITA AQUI NESTA LINHA: adicionamos o style:
+                : Text(
+                    'Gerar Arquivo $_selectedFormat',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFormatOption(String format, String desc, IconData icon, bool isDark, Color textPrimary, Color textSecondary, Color primaryColor) {
+  Widget _buildFormatOption(
+    String format,
+    String desc,
+    IconData icon,
+    bool isDark,
+    Color textPrimary,
+    Color textSecondary,
+    Color primaryColor,
+  ) {
     final isSelected = _selectedFormat == format;
     final surfaceColor = isDark ? AppColors.darkSurfaceSecondary : Colors.white;
     final borderColor = isDark ? AppColors.darkBorder : const Color(0xFFE2E6E9);
@@ -102,26 +163,52 @@ class _ExportPageState extends State<ExportPage> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-            color: isSelected ? primaryColor.withOpacity(0.15) : surfaceColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: isSelected ? primaryColor : borderColor, width: 2),
-            boxShadow: isDark ? [] : [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))]
+          color: isSelected ? primaryColor.withOpacity(0.15) : surfaceColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? primaryColor : borderColor,
+            width: 2,
+          ),
+          boxShadow: isDark
+              ? []
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: Row(
           children: [
-            Icon(icon, color: isSelected ? primaryColor : textSecondary, size: 32),
+            Icon(
+              icon,
+              color: isSelected ? primaryColor : textSecondary,
+              size: 32,
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(format, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: isSelected ? primaryColor : textPrimary)),
+                  Text(
+                    format,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? primaryColor : textPrimary,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(desc, style: TextStyle(fontSize: 13, color: textSecondary)),
+                  Text(
+                    desc,
+                    style: TextStyle(fontSize: 13, color: textSecondary),
+                  ),
                 ],
               ),
             ),
-            if (isSelected) Icon(Icons.check_circle_rounded, color: primaryColor),
+            if (isSelected)
+              Icon(Icons.check_circle_rounded, color: primaryColor),
           ],
         ),
       ),

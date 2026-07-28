@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 /// Sempre que possível, use uma cor desta classe ou o ColorScheme do tema.
 abstract final class AppColors {
   // ---------------------------------------------------------------------------
-  // Cor principal
+  // Cor principal padrão
   // ---------------------------------------------------------------------------
 
   static const Color primary = Color(0xFF3DDC78);
@@ -17,35 +17,53 @@ abstract final class AppColors {
   // Tema escuro
   // ---------------------------------------------------------------------------
 
-  static const Color darkBackground = Color(0xFF071017);
-  static const Color darkSurface = Color(0xFF101A21);
-  static const Color darkSurfaceSecondary = Color(0xFF17232B);
-  static const Color darkBorder = Color(0xFF24323A);
+  /// Fundo principal: escuro, mas sem ficar totalmente preto.
+  static const Color darkBackground = Color(0xFF0A171F);
 
-  static const Color darkTextPrimary = Color(0xFFF4F7F5);
-  static const Color darkTextSecondary = Color(0xFFA7B2B8);
-  static const Color darkTextMuted = Color(0xFF738087);
+  /// Cartões e superfícies principais.
+  static const Color darkSurface = Color(0xFF162630);
 
-  static const Color darkDisabled = Color(0xFF4C585E);
-  static const Color darkDivider = Color(0xFF24323A);
-  static const Color darkNavigation = Color(0xFF101A21);
+  /// Campos, opções, barras internas e superfícies secundárias.
+  static const Color darkSurfaceSecondary = Color(0xFF102029);
+
+  /// Bordas mais perceptíveis, sem ficarem chamativas.
+  static const Color darkBorder = Color(0xFF2B3D47);
+
+  static const Color darkTextPrimary = Color(0xFFF3F6F8);
+  static const Color darkTextSecondary = Color(0xFFB2BDC4);
+  static const Color darkTextMuted = Color(0xFF7E8D96);
+  static const Color darkDisabled = Color(0xFF52616A);
+
+  static const Color darkDivider = Color(0xFF2B3D47);
+
+  /// Barra inferior levemente diferente do fundo principal.
+  static const Color darkNavigation = Color(0xFF0E1E27);
 
   // ---------------------------------------------------------------------------
   // Tema claro
   // ---------------------------------------------------------------------------
 
-  static const Color lightBackground = Color(0xFFF5F7F6);
+  /// Fundo principal levemente acinzentado para destacar os cartões brancos.
+  static const Color lightBackground = Color(0xFFF1F4F2);
+
+  /// Cartões e superfícies principais.
   static const Color lightSurface = Color(0xFFFFFFFF);
-  static const Color lightSurfaceSecondary = Color(0xFFEAF0EC);
-  static const Color lightBorder = Color(0xFFDCE4DF);
+
+  /// Campos de busca, filtros e superfícies secundárias.
+  static const Color lightSurfaceSecondary = Color(0xFFE7ECE9);
+
+  /// Bordas mais visíveis para separar os elementos.
+  static const Color lightBorder = Color(0xFFCDD6D1);
 
   static const Color lightTextPrimary = Color(0xFF152019);
-  static const Color lightTextSecondary = Color(0xFF58635D);
-  static const Color lightTextMuted = Color(0xFF89938D);
+  static const Color lightTextSecondary = Color(0xFF5F6C65);
+  static const Color lightTextMuted = Color(0xFF828E88);
+  static const Color lightDisabled = Color(0xFFAEB8B3);
 
-  static const Color lightDisabled = Color(0xFFB8C1BC);
-  static const Color lightDivider = Color(0xFFDCE4DF);
-  static const Color lightNavigation = Color(0xFFFFFFFF);
+  static const Color lightDivider = Color(0xFFD4DCD7);
+
+  /// Barra inferior quase branca, mas separada do fundo da tela.
+  static const Color lightNavigation = Color(0xFFFCFDFC);
 
   // ---------------------------------------------------------------------------
   // Estados da interface
