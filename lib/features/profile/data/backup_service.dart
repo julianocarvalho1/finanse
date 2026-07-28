@@ -96,9 +96,38 @@ class BackupException implements Exception {
 
 /// Cria, valida, compartilha e restaura backups do Finanse.
 class BackupService {
-  BackupService._();
+  BackupService({
+    AppDatabase? appDatabase,
+    Database? database,
+    Future<Directory> Function()? documentsDirectoryProvider,
+    DateTime Function()? nowProvider,
+  }) : assert(
+         appDatabase == null || database == null,
+         'Informe AppDatabase ou Database, não os dois.',
+       ),
+       _appDatabase = appDatabase ?? AppDatabase.instance,
+       _injectedDatabase = database,
+       _documentsDirectoryProvider =
+           documentsDirectoryProvider ?? getApplicationDocumentsDirectory,
+       _nowProvider = nowProvider ?? DateTime.now;
 
-  static final BackupService instance = BackupService._();
+  static final BackupService instance = BackupService();
+
+  final AppDatabase _appDatabase;
+  final Database? _injectedDatabase;
+  final Future<Directory> Function() _documentsDirectoryProvider;
+
+  final DateTime Function() _nowProvider;
+
+  Future<Database> get _database async {
+    final Database? injectedDatabase = _injectedDatabase;
+
+    if (injectedDatabase != null) {
+      return injectedDatabase;
+    }
+
+    return _appDatabase.database;
+  }
 
   static const String _signature = 'FINANSE_BACKUP';
 
@@ -127,7 +156,7 @@ class BackupService {
   /// Cria um arquivo completo de backup.
   Future<CreatedBackup> createBackup() async {
     try {
-      final Database database = await AppDatabase.instance.database;
+      final Database database = await _database;
 
       final List<Map<String, Object?>> expenses = await database.query(
         AppDatabase.expensesTable,
@@ -156,7 +185,7 @@ class BackupService {
         'preferences': _encodePreferences(preferences),
       };
 
-      final DateTime createdAt = DateTime.now();
+      final DateTime createdAt = _nowProvider();
 
       final String checksum = _calculatePayloadChecksum(payload);
 
@@ -174,8 +203,9 @@ class BackupService {
         'payload': payload,
       };
 
-      final Directory documentsDirectory =
-          await getApplicationDocumentsDirectory();
+      await _documentsDirectoryProvider();
+
+      final Directory documentsDirectory = await _documentsDirectoryProvider();
 
       final Directory backupDirectory = Directory(
         path.join(documentsDirectory.path, 'backups'),
@@ -347,7 +377,7 @@ class BackupService {
         selectedBackup.document,
       );
 
-      final Database database = await AppDatabase.instance.database;
+      final Database database = await _database;
 
       await database.transaction<void>((Transaction transaction) async {
         await transaction.delete(AppDatabase.expensesTable);
@@ -379,7 +409,7 @@ class BackupService {
         encodedPreferences: validated.preferences,
       );
 
-      final DateTime restoredAt = DateTime.now();
+      final DateTime restoredAt = _nowProvider();
 
       await preferences.setString(
         _lastRestoreAtKey,
