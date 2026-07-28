@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_colors.dart';
 import 'app_spacing.dart';
@@ -128,6 +129,19 @@ abstract final class AppTheme {
         titleTextStyle: textTheme.titleLarge,
         iconTheme: IconThemeData(color: textPrimaryColor),
         actionsIconTheme: IconThemeData(color: textPrimaryColor),
+
+        // Mantém a barra transparente e os ícones legíveis
+        // também nas telas que utilizam AppBar.
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: brightness == Brightness.dark
+              ? Brightness.light
+              : Brightness.dark,
+          statusBarBrightness: brightness == Brightness.dark
+              ? Brightness.dark
+              : Brightness.light,
+          systemStatusBarContrastEnforced: false,
+        ),
       ),
 
       // -----------------------------------------------------------------------

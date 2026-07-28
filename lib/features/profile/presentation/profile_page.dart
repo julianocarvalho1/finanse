@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,6 +10,9 @@ import '../../../../core/utils/theme_notifier.dart';
 import '../../recurring_expenses/presentation/recurring_expenses_page.dart';
 import 'backup_page.dart';
 import 'export_page.dart';
+import '../../../../core/notifications/notification_service.dart';
+import '../../recurring_expenses/data/recurring_notification_scheduler.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -23,7 +27,8 @@ class _ProfilePageState extends State<ProfilePage> {
   double _monthlyLimit = 2000.0;
 
   bool _useBiometrics = false;
-  bool _notificationsEnabled = true;
+  bool _notificationsEnabled = false;
+  bool _isUpdatingNotifications = false;
 
   @override
   void initState() {
@@ -35,6 +40,25 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _loadPreferences() async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
 
+    final bool notificationsSavedAsEnabled =
+        preferences.getBool('notificationsEnabled') ?? false;
+
+    bool notificationsAllowed = false;
+
+    try {
+      notificationsAllowed = await NotificationService.instance
+          .areNotificationsAllowed();
+    } catch (_) {
+      notificationsAllowed = false;
+    }
+
+    final bool notificationsActuallyEnabled =
+        notificationsSavedAsEnabled && notificationsAllowed;
+
+    if (notificationsSavedAsEnabled && !notificationsAllowed) {
+      await preferences.setBool('notificationsEnabled', false);
+    }
+
     if (!mounted) {
       return;
     }
@@ -44,9 +68,245 @@ class _ProfilePageState extends State<ProfilePage> {
 
       _useBiometrics = preferences.getBool('useBiometrics') ?? false;
 
-      _notificationsEnabled =
-          preferences.getBool('notificationsEnabled') ?? true;
+      _notificationsEnabled = notificationsActuallyEnabled;
     });
+  }
+
+  Future<void> _changeNotifications(bool newValue) async {
+    if (_isUpdatingNotifications) {
+      return;
+    }
+
+    setState(() {
+      _isUpdatingNotifications = true;
+    });
+
+    try {
+      final SharedPreferences preferences =
+          await SharedPreferences.getInstance();
+
+      if (!newValue) {
+        await NotificationService.instance.cancelAllScheduledNotifications();
+
+        await preferences.setBool('notificationsEnabled', false);
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _notificationsEnabled = false;
+        });
+
+        _showProfileMessage(
+          'Notificações desativadas e lembretes futuros cancelados.',
+        );
+
+        return;
+      }
+
+      final NotificationPermissionResult permissionResult =
+          await NotificationService.instance.requestPermissions(
+            requestExactAlarms: true,
+          );
+
+      if (!permissionResult.notificationsAllowed) {
+        await preferences.setBool('notificationsEnabled', false);
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _notificationsEnabled = false;
+        });
+
+        _showProfileMessage(
+          'A permissão para notificações não foi concedida.',
+          isError: true,
+        );
+
+        return;
+      }
+
+      await preferences.setBool('notificationsEnabled', true);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _notificationsEnabled = true;
+      });
+
+      await NotificationService.instance.showTestNotification();
+
+      if (!mounted) {
+        return;
+      }
+
+      if (permissionResult.exactAlarmsAllowed) {
+        _showProfileMessage(
+          'Notificações ativadas. Uma notificação de teste foi enviada.',
+        );
+      } else {
+        _showProfileMessage(
+          'Notificações ativadas. Os horários poderão ser aproximados.',
+        );
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      _showProfileMessage(
+        'Não foi possível alterar as notificações.',
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUpdatingNotifications = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _sendNotificationTest() async {
+    if (_isUpdatingNotifications) {
+      return;
+    }
+
+    setState(() {
+      _isUpdatingNotifications = true;
+    });
+
+    try {
+      final SharedPreferences preferences =
+          await SharedPreferences.getInstance();
+
+      final NotificationPermissionResult permissionResult =
+          await NotificationService.instance.requestPermissions(
+            requestExactAlarms: true,
+          );
+
+      if (!permissionResult.notificationsAllowed) {
+        await preferences.setBool('notificationsEnabled', false);
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _notificationsEnabled = false;
+        });
+
+        _showProfileMessage(
+          'A permissão para mostrar notificações não foi concedida.',
+          isError: true,
+        );
+
+        return;
+      }
+
+      if (!permissionResult.exactAlarmsAllowed) {
+        await preferences.setBool('notificationsEnabled', true);
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _notificationsEnabled = true;
+        });
+
+        _showProfileMessage(
+          'Autorize o Finanse em “Alarmes e lembretes”. '
+          'Depois volte ao aplicativo e toque novamente em testar.',
+          isError: true,
+        );
+
+        return;
+      }
+
+      await preferences.setBool('notificationsEnabled', true);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _notificationsEnabled = true;
+      });
+
+      await RecurringNotificationScheduler.instance
+          .synchronizeAllRecurringExpenses();
+
+      final DateTime scheduledDate = await NotificationService.instance
+          .scheduleTestNotification(delay: const Duration(seconds: 15));
+
+      final List<PendingNotificationRequest> pendingNotifications =
+          await NotificationService.instance.getPendingNotifications();
+
+      if (!mounted) {
+        return;
+      }
+
+      final String scheduledTime = DateFormat('HH:mm:ss').format(scheduledDate);
+
+      _showProfileMessage(
+        'Teste agendado para $scheduledTime. '
+        '${pendingNotifications.length} '
+        '${pendingNotifications.length == 1 ? 'lembrete pendente' : 'lembretes pendentes'}.',
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      _showProfileMessage(
+        'Não foi possível agendar a notificação de teste.',
+        isError: true,
+      );
+
+      debugPrint('Erro ao testar notificação agendada: $error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUpdatingNotifications = false;
+        });
+      }
+    }
+  }
+
+  void _showProfileMessage(String message, {bool isError = false}) {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
+    messenger.clearSnackBars();
+
+    messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 5),
+        persist: false,
+        dismissDirection: DismissDirection.down,
+        backgroundColor: isError ? AppColors.error : null,
+        content: Row(
+          children: <Widget>[
+            Icon(
+              isError
+                  ? Icons.error_outline_rounded
+                  : Icons.check_circle_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(message, style: const TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _openRecurringExpenses() async {
@@ -450,10 +710,17 @@ class _ProfilePageState extends State<ProfilePage> {
         style: TextStyle(fontSize: 13, color: textSecondary),
       ),
       value: value,
-      activeColor: primaryColor,
+
+      // Estado ativado: trilho colorido e bolinha branca.
+      activeThumbColor: Colors.white,
+      activeTrackColor: primaryColor,
+
+      // Estado desativado: contraste visível em ambos os temas.
+      inactiveThumbColor: isDark ? AppColors.darkTextMuted : Colors.white,
       inactiveTrackColor: isDark
           ? AppColors.darkSurface
-          : const Color(0xFFE2E6E9),
+          : const Color(0xFFB8C0C7),
+
       onChanged: (bool newValue) {
         onChanged(newValue);
         HapticFeedback.lightImpact();
@@ -648,21 +915,22 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildSwitchTile(
               icon: Icons.notifications_active_rounded,
               title: 'Notificações',
-              subtitle: 'Lembretes de registro e alertas de limite',
+              subtitle: _isUpdatingNotifications
+                  ? 'Verificando permissões...'
+                  : 'Lembretes de registro e alertas de limite',
               value: _notificationsEnabled,
-              onChanged: (bool newValue) async {
-                final SharedPreferences preferences =
-                    await SharedPreferences.getInstance();
-
-                await preferences.setBool('notificationsEnabled', newValue);
-
-                if (!mounted) {
-                  return;
+              onChanged: _changeNotifications,
+            ),
+            Divider(height: 1, color: dividerColor, indent: 20, endIndent: 20),
+            _buildListTile(
+              icon: Icons.notification_add_rounded,
+              title: 'Testar notificação',
+              subtitle: 'Enviar uma notificação agora',
+              iconColor: primaryColor,
+              onTap: () {
+                if (!_isUpdatingNotifications) {
+                  _sendNotificationTest();
                 }
-
-                setState(() {
-                  _notificationsEnabled = newValue;
-                });
               },
             ),
           ], isDark),

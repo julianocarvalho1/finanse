@@ -8,6 +8,7 @@ import '../../../../core/utils/category_style.dart';
 import '../../data/recurring_expense_repository.dart';
 import '../../domain/recurring_expense.dart';
 import '../recurring_expense_notifier.dart';
+import '../../data/recurring_notification_scheduler.dart';
 
 class RecurringExpenseForm extends StatefulWidget {
   const RecurringExpenseForm({super.key, this.recurringExpense});
@@ -64,7 +65,8 @@ class _RecurringExpenseFormState extends State<RecurringExpenseForm> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   final RecurringExpenseRepository _repository = RecurringExpenseRepository();
-
+  final RecurringNotificationScheduler _notificationScheduler =
+      RecurringNotificationScheduler.instance;
   late final _BrazilianCurrencyInputFormatter _currencyInputFormatter;
 
   late final TextEditingController _amountController;
@@ -307,8 +309,10 @@ class _RecurringExpenseFormState extends State<RecurringExpenseForm> {
 
       final RecurringExpense? existingExpense = widget.recurringExpense;
 
+      late final RecurringExpense savedRecurringExpense;
+
       if (existingExpense == null) {
-        final RecurringExpense recurringExpense = RecurringExpense(
+        savedRecurringExpense = RecurringExpense(
           id: 'recurring_${now.microsecondsSinceEpoch}',
           amount: amount,
           categoryName: categoryName,
@@ -324,9 +328,9 @@ class _RecurringExpenseFormState extends State<RecurringExpenseForm> {
           updatedAt: now,
         );
 
-        await _repository.insertRecurringExpense(recurringExpense);
+        await _repository.insertRecurringExpense(savedRecurringExpense);
       } else {
-        final RecurringExpense updatedExpense = existingExpense.copyWith(
+        savedRecurringExpense = existingExpense.copyWith(
           amount: amount,
           categoryName: categoryName,
           description: _emptyToNull(_descriptionController.text),
@@ -339,7 +343,17 @@ class _RecurringExpenseFormState extends State<RecurringExpenseForm> {
           updatedAt: now,
         );
 
-        await _repository.updateRecurringExpense(updatedExpense);
+        await _repository.updateRecurringExpense(savedRecurringExpense);
+      }
+
+      bool notificationSyncFailed = false;
+
+      try {
+        await _notificationScheduler.synchronizeRecurringExpense(
+          savedRecurringExpense,
+        );
+      } catch (_) {
+        notificationSyncFailed = true;
       }
 
       recurringExpenseNotifier.notify();
@@ -354,22 +368,26 @@ class _RecurringExpenseFormState extends State<RecurringExpenseForm> {
 
       messenger.showSnackBar(
         SnackBar(
-          duration: const Duration(seconds: 4),
+          duration: const Duration(seconds: 5),
           persist: false,
           dismissDirection: DismissDirection.down,
           content: Row(
             children: <Widget>[
-              const Icon(
-                Icons.check_circle_rounded,
+              Icon(
+                notificationSyncFailed
+                    ? Icons.warning_amber_rounded
+                    : Icons.check_circle_rounded,
                 color: Colors.white,
                 size: 22,
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  _isEditing
-                      ? 'Despesa recorrente atualizada.'
-                      : 'Despesa recorrente criada.',
+                  notificationSyncFailed
+                      ? 'Recorrência salva, mas o lembrete não pôde ser atualizado.'
+                      : _isEditing
+                      ? 'Despesa recorrente e lembrete atualizados.'
+                      : 'Despesa recorrente criada com sucesso.',
                 ),
               ),
             ],

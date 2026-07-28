@@ -10,25 +10,31 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // Necessário para o agendamento de notificações em versões antigas
+        // e atuais do Android.
+        isCoreLibraryDesugaringEnabled = true
+
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.finanse.finanse"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
+
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Evita problemas de quantidade de métodos após adicionar plugins.
+        multiDexEnabled = true
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // Temporariamente utiliza a assinatura de debug.
+            // A assinatura definitiva será configurada na etapa de lançamento.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -36,8 +42,15 @@ android {
 
 kotlin {
     compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        jvmTarget =
+            org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
+}
+
+dependencies {
+    coreLibraryDesugaring(
+        "com.android.tools:desugar_jdk_libs:2.1.4",
+    )
 }
 
 flutter {

@@ -7,6 +7,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/category_style.dart';
 import '../../../core/utils/expense_notifier.dart';
 import '../data/recurring_expense_repository.dart';
+import '../data/recurring_notification_scheduler.dart';
 import '../domain/recurring_expense.dart';
 import 'recurring_expense_notifier.dart';
 import 'widgets/recurring_expense_form.dart';
@@ -22,7 +23,8 @@ class RecurringExpensesPage extends StatefulWidget {
 
 class _RecurringExpensesPageState extends State<RecurringExpensesPage> {
   final RecurringExpenseRepository _repository = RecurringExpenseRepository();
-
+  final RecurringNotificationScheduler _notificationScheduler =
+      RecurringNotificationScheduler.instance;
   late final NumberFormat _currencyFormatter;
 
   List<RecurringExpense> _recurringExpenses = <RecurringExpense>[];
@@ -202,6 +204,16 @@ class _RecurringExpensesPageState extends State<RecurringExpensesPage> {
       final RecurringRegistrationResult result = await _repository
           .registerRecurringExpense(recurringExpenseId: recurringExpense.id);
 
+      bool reminderUpdated = true;
+
+      try {
+        await _notificationScheduler.synchronizeRecurringExpense(
+          result.updatedRecurringExpense,
+        );
+      } catch (_) {
+        reminderUpdated = false;
+      }
+
       expenseNotifier.value++;
       recurringExpenseNotifier.notify();
 
@@ -215,11 +227,28 @@ class _RecurringExpensesPageState extends State<RecurringExpensesPage> {
           persist: false,
           dismissDirection: DismissDirection.down,
           actionOverflowThreshold: 1,
-          content: Text(
-            '${_currencyFormatter.format(result.expense.amount)} '
-            'registrado em ${result.expense.categoryName}.',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          content: Row(
+            children: <Widget>[
+              Icon(
+                reminderUpdated
+                    ? Icons.check_circle_rounded
+                    : Icons.warning_amber_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  reminderUpdated
+                      ? '${_currencyFormatter.format(result.expense.amount)} '
+                            'registrado em ${result.expense.categoryName}.'
+                      : 'Gasto registrado, mas o próximo lembrete '
+                            'não pôde ser atualizado.',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
           action: SnackBarAction(
             label: 'Desfazer',
@@ -246,6 +275,16 @@ class _RecurringExpensesPageState extends State<RecurringExpensesPage> {
     try {
       await _repository.undoRegistration(result);
 
+      bool reminderRestored = true;
+
+      try {
+        await _notificationScheduler.synchronizeRecurringExpense(
+          result.previousRecurringExpense,
+        );
+      } catch (_) {
+        reminderRestored = false;
+      }
+
       expenseNotifier.value++;
       recurringExpenseNotifier.notify();
 
@@ -258,11 +297,29 @@ class _RecurringExpensesPageState extends State<RecurringExpensesPage> {
       messenger.clearSnackBars();
 
       messenger.showSnackBar(
-        const SnackBar(
-          duration: Duration(seconds: 4),
+        SnackBar(
+          duration: const Duration(seconds: 5),
           persist: false,
-          content: Text(
-            'Registro desfeito. O gasto foi removido do histórico.',
+          content: Row(
+            children: <Widget>[
+              Icon(
+                reminderRestored
+                    ? Icons.undo_rounded
+                    : Icons.warning_amber_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  reminderRestored
+                      ? 'Registro desfeito. O gasto foi removido '
+                            'e o lembrete anterior foi restaurado.'
+                      : 'Registro desfeito, mas o lembrete '
+                            'não pôde ser restaurado.',
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -281,10 +338,21 @@ class _RecurringExpensesPageState extends State<RecurringExpensesPage> {
     final bool newActiveState = !recurringExpense.isActive;
 
     try {
-      await _repository.setRecurringExpenseActive(
-        id: recurringExpense.id,
-        isActive: newActiveState,
-      );
+      final RecurringExpense updatedExpense = await _repository
+          .setRecurringExpenseActive(
+            id: recurringExpense.id,
+            isActive: newActiveState,
+          );
+
+      bool reminderUpdated = true;
+
+      try {
+        await _notificationScheduler.synchronizeRecurringExpense(
+          updatedExpense,
+        );
+      } catch (_) {
+        reminderUpdated = false;
+      }
 
       recurringExpenseNotifier.notify();
 
@@ -298,12 +366,36 @@ class _RecurringExpensesPageState extends State<RecurringExpensesPage> {
 
       messenger.showSnackBar(
         SnackBar(
-          duration: const Duration(seconds: 4),
+          duration: const Duration(seconds: 5),
           persist: false,
-          content: Text(
-            newActiveState
-                ? 'Despesa recorrente reativada.'
-                : 'Despesa recorrente pausada.',
+          content: Row(
+            children: <Widget>[
+              Icon(
+                reminderUpdated
+                    ? newActiveState
+                          ? Icons.play_circle_rounded
+                          : Icons.pause_circle_rounded
+                    : Icons.warning_amber_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  reminderUpdated
+                      ? newActiveState
+                            ? 'Despesa recorrente reativada e '
+                                  'lembrete atualizado.'
+                            : 'Despesa recorrente pausada e '
+                                  'lembrete cancelado.'
+                      : newActiveState
+                      ? 'Recorrência reativada, mas o lembrete '
+                            'não pôde ser criado.'
+                      : 'Recorrência pausada, mas não foi possível '
+                            'confirmar o cancelamento do lembrete.',
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -373,6 +465,14 @@ class _RecurringExpensesPageState extends State<RecurringExpensesPage> {
       final RecurringExpense removedExpense = await _repository
           .deleteRecurringExpenseAndReturn(recurringExpense.id);
 
+      bool reminderCancelled = true;
+
+      try {
+        await _notificationScheduler.cancelRecurringExpense(removedExpense.id);
+      } catch (_) {
+        reminderCancelled = false;
+      }
+
       recurringExpenseNotifier.notify();
 
       if (!mounted) {
@@ -389,7 +489,26 @@ class _RecurringExpensesPageState extends State<RecurringExpensesPage> {
           persist: false,
           dismissDirection: DismissDirection.down,
           actionOverflowThreshold: 1,
-          content: const Text('Despesa recorrente excluída.'),
+          content: Row(
+            children: <Widget>[
+              Icon(
+                reminderCancelled
+                    ? Icons.delete_outline_rounded
+                    : Icons.warning_amber_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  reminderCancelled
+                      ? 'Despesa recorrente e lembrete excluídos.'
+                      : 'Recorrência excluída, mas não foi possível '
+                            'confirmar o cancelamento do lembrete.',
+                ),
+              ),
+            ],
+          ),
           action: SnackBarAction(
             label: 'Desfazer',
             onPressed: () {
@@ -413,6 +532,16 @@ class _RecurringExpensesPageState extends State<RecurringExpensesPage> {
     try {
       await _repository.saveRecurringExpense(recurringExpense);
 
+      bool reminderRestored = true;
+
+      try {
+        await _notificationScheduler.synchronizeRecurringExpense(
+          recurringExpense,
+        );
+      } catch (_) {
+        reminderRestored = false;
+      }
+
       recurringExpenseNotifier.notify();
 
       if (!mounted) {
@@ -424,10 +553,29 @@ class _RecurringExpensesPageState extends State<RecurringExpensesPage> {
       messenger.clearSnackBars();
 
       messenger.showSnackBar(
-        const SnackBar(
-          duration: Duration(seconds: 4),
+        SnackBar(
+          duration: const Duration(seconds: 5),
           persist: false,
-          content: Text('Despesa recorrente restaurada.'),
+          content: Row(
+            children: <Widget>[
+              Icon(
+                reminderRestored
+                    ? Icons.restore_rounded
+                    : Icons.warning_amber_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  reminderRestored
+                      ? 'Despesa recorrente e lembrete restaurados.'
+                      : 'Recorrência restaurada, mas o lembrete '
+                            'não pôde ser recriado.',
+                ),
+              ),
+            ],
+          ),
         ),
       );
     } catch (_) {
