@@ -26,6 +26,71 @@ class RecurringNotificationSyncResult {
   final bool permissionAllowed;
 }
 
+abstract interface class RecurringNotificationService {
+  Future<void> initialize();
+
+  Future<bool> areNotificationsAllowed();
+
+  Future<void> scheduleRecurringExpenseReminder({
+    required String recurringExpenseId,
+    required String categoryName,
+    required double amount,
+    required DateTime scheduledDate,
+    String? description,
+  });
+
+  Future<void> cancelRecurringExpenseReminder(String recurringExpenseId);
+
+  Future<void> cancelAllScheduledNotifications();
+}
+
+class _NotificationServiceAdapter implements RecurringNotificationService {
+  _NotificationServiceAdapter({NotificationService? notificationService})
+    : _notificationService =
+          notificationService ?? NotificationService.instance;
+
+  final NotificationService _notificationService;
+
+  @override
+  Future<void> initialize() {
+    return _notificationService.initialize();
+  }
+
+  @override
+  Future<bool> areNotificationsAllowed() {
+    return _notificationService.areNotificationsAllowed();
+  }
+
+  @override
+  Future<void> scheduleRecurringExpenseReminder({
+    required String recurringExpenseId,
+    required String categoryName,
+    required double amount,
+    required DateTime scheduledDate,
+    String? description,
+  }) {
+    return _notificationService.scheduleRecurringExpenseReminder(
+      recurringExpenseId: recurringExpenseId,
+      categoryName: categoryName,
+      amount: amount,
+      scheduledDate: scheduledDate,
+      description: description,
+    );
+  }
+
+  @override
+  Future<void> cancelRecurringExpenseReminder(String recurringExpenseId) {
+    return _notificationService.cancelRecurringExpenseReminder(
+      recurringExpenseId,
+    );
+  }
+
+  @override
+  Future<void> cancelAllScheduledNotifications() {
+    return _notificationService.cancelAllScheduledNotifications();
+  }
+}
+
 /// Mantém os lembretes sincronizados com as despesas recorrentes.
 ///
 /// Uma recorrência terá um lembrete agendado somente quando:
@@ -37,16 +102,23 @@ class RecurringNotificationSyncResult {
 ///
 /// Recorrências pausadas, vencidas ou excluídas terão o lembrete cancelado.
 class RecurringNotificationScheduler {
-  RecurringNotificationScheduler._();
+  RecurringNotificationScheduler({
+    RecurringNotificationService? notificationService,
+    RecurringExpenseRepository? repository,
+    DateTime Function()? nowProvider,
+  }) : _notificationService =
+           notificationService ?? _NotificationServiceAdapter(),
+       _repository = repository ?? RecurringExpenseRepository(),
+       _nowProvider = nowProvider ?? DateTime.now;
 
   static final RecurringNotificationScheduler instance =
-      RecurringNotificationScheduler._();
+      RecurringNotificationScheduler();
 
   static const String notificationsEnabledKey = 'notificationsEnabled';
 
-  final NotificationService _notificationService = NotificationService.instance;
-
-  final RecurringExpenseRepository _repository = RecurringExpenseRepository();
+  final RecurringNotificationService _notificationService;
+  final RecurringExpenseRepository _repository;
+  final DateTime Function() _nowProvider;
 
   /// Verifica a preferência salva no aplicativo.
   Future<bool> areNotificationsEnabledByUser() async {
@@ -81,7 +153,7 @@ class RecurringNotificationScheduler {
       return false;
     }
 
-    final DateTime now = DateTime.now();
+    final DateTime now = _nowProvider();
 
     final bool shouldSchedule =
         recurringExpense.isActive && recurringExpense.nextDate.isAfter(now);
@@ -126,12 +198,14 @@ class RecurringNotificationScheduler {
     int scheduledCount = 0;
     int cancelledCount = 0;
 
+    final DateTime now = _nowProvider();
+
     for (final RecurringExpense recurringExpense in recurringExpenses) {
       final bool shouldSchedule =
           enabledByUser &&
           permissionAllowed &&
           recurringExpense.isActive &&
-          recurringExpense.nextDate.isAfter(DateTime.now());
+          recurringExpense.nextDate.isAfter(now);
 
       if (shouldSchedule) {
         await _notificationService.scheduleRecurringExpenseReminder(
