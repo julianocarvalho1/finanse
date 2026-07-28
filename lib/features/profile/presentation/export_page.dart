@@ -1,215 +1,378 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../../../../core/theme/app_colors.dart';
+import '../data/export_service.dart';
 
 class ExportPage extends StatefulWidget {
   const ExportPage({super.key});
 
   @override
-  State<ExportPage> createState() => _ExportPageState();
+  State<ExportPage> createState() {
+    return _ExportPageState();
+  }
 }
 
 class _ExportPageState extends State<ExportPage> {
+  ExportFileFormat _selectedFormat = ExportFileFormat.csv;
+
   bool _isExporting = false;
-  String _selectedFormat = 'CSV';
 
   Future<void> _exportData() async {
-    setState(() => _isExporting = true);
-    await Future.delayed(const Duration(seconds: 2));
-    setState(() => _isExporting = false);
-    HapticFeedback.heavyImpact();
+    if (_isExporting) {
+      return;
+    }
 
-    if (mounted) {
-      final primaryColor = Theme.of(context).colorScheme.primary;
-      ScaffoldMessenger.of(context).showSnackBar(
+    HapticFeedback.selectionClick();
+
+    setState(() {
+      _isExporting = true;
+    });
+
+    try {
+      final ExportedExpenseFile exportedFile = await ExportService.instance
+          .generate(_selectedFormat);
+
+      if (!mounted) {
+        return;
+      }
+
+      HapticFeedback.mediumImpact();
+
+      await ExportService.instance.share(exportedFile);
+
+      if (!mounted) {
+        return;
+      }
+
+      final String recordLabel = exportedFile.recordCount == 1
+          ? 'despesa'
+          : 'despesas';
+
+      _showMessage(
+        '${exportedFile.format.label} gerado com '
+        '${exportedFile.recordCount} $recordLabel.',
+      );
+    } on ExportException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      HapticFeedback.vibrate();
+
+      _showMessage(error.message, isError: true);
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Erro inesperado ao exportar relatório: '
+        '$error\n$stackTrace',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      HapticFeedback.vibrate();
+
+      _showMessage('Não foi possível gerar o relatório.', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExporting = false;
+        });
+      }
+    }
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
+    final Color backgroundColor = isError
+        ? AppColors.error
+        : Theme.of(context).colorScheme.primary;
+
+    final IconData icon = isError
+        ? Icons.error_outline_rounded
+        : Icons.check_circle_outline_rounded;
+
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
         SnackBar(
           content: Row(
-            children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.white),
+            children: <Widget>[
+              Icon(icon, color: Colors.white),
               const SizedBox(width: 12),
-              Text('Relatório $_selectedFormat exportado com sucesso!'),
+              Expanded(
+                child: Text(
+                  message,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ],
           ),
-          backgroundColor: primaryColor,
+          backgroundColor: backgroundColor,
           behavior: SnackBarBehavior.floating,
         ),
       );
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // --- LÓGICA DE CORES DINÂMICAS ---
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? AppColors.darkBackground : const Color(0xFFF8F9FA);
-    final textPrimary = isDark
-        ? AppColors.darkTextPrimary
-        : const Color(0xFF1A1D1F);
-    final textSecondary = isDark
-        ? AppColors.darkTextSecondary
-        : const Color(0xFF535F66);
-    final textMuted = isDark
-        ? AppColors.darkTextMuted
-        : const Color(0xFF8A959D);
-    final primaryColor = Theme.of(context).colorScheme.primary;
+    final ThemeData theme = Theme.of(context);
+    final Color primaryColor = theme.colorScheme.primary;
+    final Color textSecondary = AppColors.textSecondary(context);
+    final Color textMuted = AppColors.textMuted(context);
 
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: IconThemeData(color: textPrimary),
-        title: Text(
-          'Exportar Relatório',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
-            color: textPrimary,
-          ),
-        ),
+        title: const Text('Exportar relatório'),
         centerTitle: true,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          Text(
-            'Baixe um arquivo contendo todos os seus registros financeiros para abrir no Excel, enviar para o seu contador ou imprimir.',
-            style: TextStyle(color: textSecondary, fontSize: 15, height: 1.5),
-          ),
-          const SizedBox(height: 32),
-
-          Text(
-            'FORMATO DO ARQUIVO',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: textMuted,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          _buildFormatOption(
-            'CSV',
-            'Ideal para planilhas (Excel, Sheets)',
-            Icons.table_chart_rounded,
-            isDark,
-            textPrimary,
-            textSecondary,
-            primaryColor,
-          ),
-          const SizedBox(height: 12),
-          _buildFormatOption(
-            'PDF',
-            'Ideal para leitura e impressão',
-            Icons.picture_as_pdf_rounded,
-            isDark,
-            textPrimary,
-            textSecondary,
-            primaryColor,
-          ),
-
-          const SizedBox(height: 48),
-
-          ElevatedButton(
-            onPressed: _isExporting ? null : _exportData,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          children: <Widget>[
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: primaryColor.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: primaryColor.withValues(alpha: 0.24)),
               ),
-            ),
-            child: _isExporting
-                ? const SizedBox(
-                    height: 24,
-                    width: 24,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 3,
-                    ),
-                  )
-                // A CORREÇÃO FOI FEITA AQUI NESTA LINHA: adicionamos o style:
-                : Text(
-                    'Gerar Arquivo $_selectedFormat',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Icon(
+                    Icons.file_download_outlined,
+                    color: primaryColor,
+                    size: 29,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      'Gere um arquivo com todas as despesas '
+                      'cadastradas no Finanse. Depois você poderá '
+                      'salvar, enviar ou abrir em outro aplicativo.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: textSecondary,
+                        height: 1.45,
+                      ),
                     ),
                   ),
-          ),
-        ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 30),
+            Text(
+              'FORMATO DO ARQUIVO',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: textMuted,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.1,
+              ),
+            ),
+            const SizedBox(height: 14),
+            _buildFormatOption(
+              context: context,
+              format: ExportFileFormat.csv,
+              title: 'CSV',
+              description: 'Compatível com Excel e Google Planilhas',
+              icon: Icons.table_chart_outlined,
+            ),
+            const SizedBox(height: 12),
+            _buildFormatOption(
+              context: context,
+              format: ExportFileFormat.xlsx,
+              title: 'Excel',
+              description: 'Planilha editável no formato XLSX',
+              icon: Icons.grid_on_rounded,
+            ),
+            const SizedBox(height: 12),
+            _buildFormatOption(
+              context: context,
+              format: ExportFileFormat.pdf,
+              title: 'PDF',
+              description: 'Relatório organizado para leitura e impressão',
+              icon: Icons.picture_as_pdf_outlined,
+            ),
+            const SizedBox(height: 30),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceSecondary(context),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border(context)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Icon(
+                    Icons.privacy_tip_outlined,
+                    color: textSecondary,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'O arquivo é produzido no seu aparelho. '
+                      'O Finanse não envia automaticamente seus '
+                      'dados financeiros para a internet.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 34),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _isExporting ? null : _exportData,
+                icon: _isExporting
+                    ? SizedBox(
+                        width: 21,
+                        height: 21,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: theme.colorScheme.onPrimary,
+                        ),
+                      )
+                    : const Icon(Icons.ios_share_rounded),
+                label: Text(
+                  _isExporting
+                      ? 'Gerando arquivo...'
+                      : 'Gerar e compartilhar '
+                            '${_selectedFormat.label}',
+                ),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(54),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'A tela de compartilhamento do Android será aberta '
+              'depois que o arquivo estiver pronto.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(color: textMuted),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildFormatOption(
-    String format,
-    String desc,
-    IconData icon,
-    bool isDark,
-    Color textPrimary,
-    Color textSecondary,
-    Color primaryColor,
-  ) {
-    final isSelected = _selectedFormat == format;
-    final surfaceColor = isDark ? AppColors.darkSurfaceSecondary : Colors.white;
-    final borderColor = isDark ? AppColors.darkBorder : const Color(0xFFE2E6E9);
+  Widget _buildFormatOption({
+    required BuildContext context,
+    required ExportFileFormat format,
+    required String title,
+    required String description,
+    required IconData icon,
+  }) {
+    final ThemeData theme = Theme.of(context);
+    final Color primaryColor = theme.colorScheme.primary;
+    final Color textPrimary = AppColors.textPrimary(context);
+    final Color textSecondary = AppColors.textSecondary(context);
 
-    return InkWell(
-      onTap: () => setState(() => _selectedFormat = format),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected ? primaryColor.withOpacity(0.15) : surfaceColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? primaryColor : borderColor,
-            width: 2,
+    final bool isSelected = _selectedFormat == format;
+
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: '$title. $description',
+      child: InkWell(
+        onTap: _isExporting
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+
+                setState(() {
+                  _selectedFormat = format;
+                });
+              },
+        borderRadius: BorderRadius.circular(18),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.all(17),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? primaryColor.withValues(alpha: 0.11)
+                : AppColors.surface(context),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isSelected ? primaryColor : AppColors.border(context),
+              width: isSelected ? 1.8 : 1,
+            ),
           ),
-          boxShadow: isDark
-              ? []
-              : [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? primaryColor : textSecondary,
-              size: 32,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    format,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: isSelected ? primaryColor : textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    desc,
-                    style: TextStyle(fontSize: 13, color: textSecondary),
-                  ),
-                ],
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? primaryColor.withValues(alpha: 0.15)
+                      : AppColors.surfaceSecondary(context),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  icon,
+                  color: isSelected ? primaryColor : textSecondary,
+                  size: 27,
+                ),
               ),
-            ),
-            if (isSelected)
-              Icon(Icons.check_circle_rounded, color: primaryColor),
-          ],
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: isSelected ? primaryColor : textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: textSecondary,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: isSelected
+                    ? Icon(
+                        Icons.check_circle_rounded,
+                        key: ValueKey<ExportFileFormat>(format),
+                        color: primaryColor,
+                      )
+                    : Icon(
+                        Icons.circle_outlined,
+                        key: ValueKey<String>('unselected-${format.name}'),
+                        color: AppColors.border(context),
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );

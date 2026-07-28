@@ -86,11 +86,18 @@ class _HistoryPageState extends State<HistoryPage> {
     }
 
     try {
-      final List<Expense> expenses = await _repository.getAllExpenses();
+      final List<Expense> loadedExpenses = await _repository.getAllExpenses();
 
       if (!mounted || requestId != _loadRequestId) {
         return;
       }
+
+      // O repositório retorna uma lista de tamanho fixo.
+      // Criamos uma cópia modificável para permitir exclusões locais.
+      final List<Expense> expenses = List<Expense>.from(
+        loadedExpenses,
+        growable: true,
+      );
 
       setState(() {
         _allExpenses = expenses;
@@ -98,7 +105,12 @@ class _HistoryPageState extends State<HistoryPage> {
         _isLoading = false;
         _errorMessage = null;
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Erro ao carregar o histórico: '
+        '$error\n$stackTrace',
+      );
+
       if (!mounted || requestId != _loadRequestId) {
         return;
       }
@@ -532,8 +544,12 @@ class _HistoryPageState extends State<HistoryPage> {
       }
     }
 
+    // Remove imediatamente da tela para que o Dismissible
+    // não permaneça na árvore depois da animação.
     setState(() {
-      _allExpenses.removeWhere((Expense item) => item.id == expense.id);
+      _allExpenses = _allExpenses
+          .where((Expense item) => item.id != expense.id)
+          .toList(growable: true);
 
       _filteredExpenses = _filterAndSortExpenses(_allExpenses);
     });
@@ -543,6 +559,7 @@ class _HistoryPageState extends State<HistoryPage> {
         expense.id,
       );
 
+      // Atualiza Início, Histórico e Relatórios.
       expenseNotifier.value++;
 
       if (!mounted) {
@@ -551,43 +568,54 @@ class _HistoryPageState extends State<HistoryPage> {
 
       final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
 
-      messenger.clearSnackBars();
+      messenger
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 5),
+            content: Text(
+              'Gasto de '
+              '${_currencyFormatter.format(expense.amount)} '
+              'excluído.',
+            ),
+            action: SnackBarAction(
+              label: 'Desfazer',
+              onPressed: () async {
+                try {
+                  await _repository.saveExpense(removedExpense);
 
-      messenger.showSnackBar(
-        SnackBar(
-          duration: const Duration(seconds: 5),
-          content: Text(
-            'Gasto de '
-            '${_currencyFormatter.format(expense.amount)} '
-            'excluído.',
-          ),
-          action: SnackBarAction(
-            label: 'Desfazer',
-            onPressed: () async {
-              try {
-                await _repository.saveExpense(removedExpense);
+                  expenseNotifier.value++;
 
-                expenseNotifier.value++;
+                  if (!mounted) {
+                    return;
+                  }
 
-                if (!mounted) {
-                  return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Gasto restaurado.')),
+                  );
+                } catch (error, stackTrace) {
+                  debugPrint(
+                    'Erro ao restaurar gasto: '
+                    '$error\n$stackTrace',
+                  );
+
+                  if (!mounted) {
+                    return;
+                  }
+
+                  _showErrorMessage('Não foi possível restaurar o gasto.');
                 }
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Gasto restaurado.')),
-                );
-              } catch (_) {
-                if (!mounted) {
-                  return;
-                }
-
-                _showErrorMessage('Não foi possível restaurar o gasto.');
-              }
-            },
+              },
+            ),
           ),
-        ),
+        );
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Erro ao excluir gasto: '
+        '$error\n$stackTrace',
       );
-    } catch (_) {
+
+      // Restaura a lista diretamente do banco caso a exclusão falhe.
       await _loadData(showLoading: false);
 
       if (!mounted) {

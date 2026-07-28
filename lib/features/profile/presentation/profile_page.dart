@@ -4,16 +4,15 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/notifications/notification_service.dart';
+import '../../../../core/security/biometric_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/expense_notifier.dart';
 import '../../../../core/utils/theme_notifier.dart';
+import '../../recurring_expenses/data/recurring_notification_scheduler.dart';
 import '../../recurring_expenses/presentation/recurring_expenses_page.dart';
 import 'backup_page.dart';
 import 'export_page.dart';
-import '../../../../core/notifications/notification_service.dart';
-import '../../recurring_expenses/data/recurring_notification_scheduler.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../../../../core/security/biometric_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});

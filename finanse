@@ -1,0 +1,77 @@
+{
+  "signature": "FINANSE_BACKUP",
+  "formatVersion": 2,
+  "databaseVersion": 3,
+  "createdAt": "2026-07-28T02:44:45.270004Z",
+  "application": {
+    "name": "Finanse",
+    "version": "1.0.0"
+  },
+  "integrity": {
+    "checksum": "0a35d33a",
+    "expenseCount": 2,
+    "recurringExpenseCount": 1
+  },
+  "payload": {
+    "expenses": [
+      {
+        "id": "1785206029891087",
+        "amount": 500.0,
+        "categoryName": "Alimentação",
+        "description": "Almoço",
+        "date": "2026-07-27T23:33:40.128502",
+        "paymentMethod": null,
+        "isRecurring": 0,
+        "createdAt": "2026-07-27T23:33:49.891087",
+        "updatedAt": "2026-07-27T23:33:49.891087",
+        "notes": null,
+        "recurringExpenseId": null
+      },
+      {
+        "id": "1785206042037598",
+        "amount": 1600.0,
+        "categoryName": "Moradia",
+        "description": "Aluguel",
+        "date": "2026-07-27T23:33:53.363741",
+        "paymentMethod": null,
+        "isRecurring": 0,
+        "createdAt": "2026-07-27T23:34:02.037598",
+        "updatedAt": "2026-07-27T23:34:02.037598",
+        "notes": null,
+        "recurringExpenseId": null
+      }
+    ],
+    "recurringExpenses": [
+      {
+        "id": "recurring_1785206069456999",
+        "amount": 119.0,
+        "categoryName": "Contas",
+        "description": "Internet",
+        "notes": null,
+        "paymentMethod": null,
+        "frequency": "monthly",
+        "customIntervalDays": null,
+        "nextDate": "2026-07-28T23:34:10.235956",
+        "isActive": 1,
+        "lastRegisteredAt": null,
+        "registeredCount": 0,
+        "createdAt": "2026-07-27T23:34:29.456999",
+        "updatedAt": "2026-07-27T23:34:29.456999"
+      }
+    ],
+    "preferences": {
+      "notificationsEnabled": {
+        "type": "bool",
+        "value": false
+      },
+      "themeColor": {
+        "type": "int",
+        "value": 4282090230
+      },
+      "themeMode": {
+        "type": "string",
+        "value": "light"
+      }
+    }
+  }
+}
