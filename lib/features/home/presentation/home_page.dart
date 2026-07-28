@@ -26,7 +26,7 @@ class _HomePageState extends State<HomePage> {
   late final NumberFormat _currencyFormatter;
 
   String _selectedPeriod = 'Hoje';
-  String _userName = 'Lucas';
+  String _userName = '';
 
   double _periodTotal = 0;
   double _previousPeriodTotal = 0;
@@ -114,7 +114,7 @@ class _HomePageState extends State<HomePage> {
 
       setState(() {
         _monthlyLimit = savedLimit > 0 ? savedLimit : 2000;
-        _userName = savedUserName.isEmpty ? 'Lucas' : savedUserName;
+        _userName = savedUserName;
 
         _periodTotal = periodTotal;
         _previousPeriodTotal = previousPeriodTotal;
@@ -290,20 +290,6 @@ class _HomePageState extends State<HomePage> {
 
   void _openAddExpense() {
     AddExpenseModal.show(context);
-  }
-
-  void _showNotificationInformation() {
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-
-    messenger.clearSnackBars();
-
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Os lembretes serão configurados na etapa de notificações.',
-        ),
-      ),
-    );
   }
 
   void _showExpenseDetails(Expense expense) {
@@ -650,7 +636,9 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                '${_greeting()}, $_userName! 👋',
+                _userName.isEmpty
+                    ? '${_greeting()}! 👋'
+                    : '${_greeting()}, $_userName! 👋',
                 style: theme.textTheme.headlineSmall,
               ),
               const SizedBox(height: AppSpacing.xxs),
@@ -660,11 +648,6 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
-        ),
-        IconButton(
-          onPressed: _showNotificationInformation,
-          tooltip: 'Notificações',
-          icon: const Icon(Icons.notifications_none_rounded),
         ),
       ],
     );

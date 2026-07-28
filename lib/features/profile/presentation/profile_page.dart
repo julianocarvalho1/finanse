@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -25,6 +26,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   double _monthlyLimit = 2000.0;
+  String _userName = '';
 
   bool _useBiometrics = false;
   bool _notificationsEnabled = false;
@@ -60,6 +62,8 @@ class _ProfilePageState extends State<ProfilePage> {
     if (notificationsSavedAsEnabled && !notificationsAllowed) {
       await preferences.setBool('notificationsEnabled', false);
     }
+    final String savedUserName =
+        preferences.getString('userName')?.trim() ?? '';
 
     if (!mounted) {
       return;
@@ -67,7 +71,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     setState(() {
       _monthlyLimit = preferences.getDouble('monthlyLimit') ?? 2000.0;
-
+      _userName = savedUserName;
       _useBiometrics = preferences.getBool('useBiometrics') ?? false;
 
       _notificationsEnabled = notificationsActuallyEnabled;
@@ -890,21 +894,27 @@ class _ProfilePageState extends State<ProfilePage> {
                 CircleAvatar(
                   radius: 32,
                   backgroundColor: primaryColor.withValues(alpha: 0.15),
-                  child: Text(
-                    'L',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: primaryColor,
-                    ),
-                  ),
+                  child: _userName.isEmpty
+                      ? Icon(
+                          Icons.person_rounded,
+                          size: 30,
+                          color: primaryColor,
+                        )
+                      : Text(
+                          _userName.substring(0, 1).toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: primaryColor,
+                          ),
+                        ),
                 ),
                 const SizedBox(width: 16),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'Lucas',
+                      _userName.isEmpty ? 'Seu perfil' : _userName,
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -913,7 +923,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Membro desde 2026',
+                      'Perfil local do Finanse',
                       style: TextStyle(fontSize: 14, color: textSecondary),
                     ),
                   ],
@@ -1040,18 +1050,25 @@ class _ProfilePageState extends State<ProfilePage> {
               value: _notificationsEnabled,
               onChanged: _changeNotifications,
             ),
-            Divider(height: 1, color: dividerColor, indent: 20, endIndent: 20),
-            _buildListTile(
-              icon: Icons.notification_add_rounded,
-              title: 'Testar notificação',
-              subtitle: 'Enviar uma notificação agora',
-              iconColor: primaryColor,
-              onTap: () {
-                if (!_isUpdatingNotifications) {
-                  _sendNotificationTest();
-                }
-              },
-            ),
+            if (kDebugMode) ...<Widget>[
+              Divider(
+                height: 1,
+                color: dividerColor,
+                indent: 20,
+                endIndent: 20,
+              ),
+              _buildListTile(
+                icon: Icons.notification_add_rounded,
+                title: 'Testar notificação',
+                subtitle: 'Enviar uma notificação agora',
+                iconColor: primaryColor,
+                onTap: () {
+                  if (!_isUpdatingNotifications) {
+                    _sendNotificationTest();
+                  }
+                },
+              ),
+            ],
           ], isDark),
           _buildSectionHeader('Segurança e Biometria'),
           _buildSettingsGroup(<Widget>[
