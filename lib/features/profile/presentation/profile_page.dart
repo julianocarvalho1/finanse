@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:finanse/features/profile/presentation/personal_data_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -27,6 +30,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   double _monthlyLimit = 2000.0;
   String _userName = '';
+  String _profilePhotoPath = '';
 
   bool _useBiometrics = false;
   bool _notificationsEnabled = false;
@@ -64,6 +68,17 @@ class _ProfilePageState extends State<ProfilePage> {
     }
     final String savedUserName =
         preferences.getString('userName')?.trim() ?? '';
+    String savedProfilePhotoPath =
+        preferences.getString('profilePhotoPath')?.trim() ?? '';
+
+    if (savedProfilePhotoPath.isNotEmpty) {
+      final bool photoExists = await File(savedProfilePhotoPath).exists();
+
+      if (!photoExists) {
+        await preferences.remove('profilePhotoPath');
+        savedProfilePhotoPath = '';
+      }
+    }
 
     if (!mounted) {
       return;
@@ -72,6 +87,7 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() {
       _monthlyLimit = preferences.getDouble('monthlyLimit') ?? 2000.0;
       _userName = savedUserName;
+      _profilePhotoPath = savedProfilePhotoPath;
       _useBiometrics = preferences.getBool('useBiometrics') ?? false;
 
       _notificationsEnabled = notificationsActuallyEnabled;
@@ -430,6 +446,24 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ),
     );
+  }
+
+  Future<void> _openPersonalData() async {
+    HapticFeedback.selectionClick();
+
+    await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (BuildContext context) {
+          return const PersonalDataPage();
+        },
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await _loadPreferences();
   }
 
   Future<void> _openRecurringExpenses() async {
@@ -894,7 +928,12 @@ class _ProfilePageState extends State<ProfilePage> {
                 CircleAvatar(
                   radius: 32,
                   backgroundColor: primaryColor.withValues(alpha: 0.15),
-                  child: _userName.isEmpty
+                  backgroundImage: _profilePhotoPath.isEmpty
+                      ? null
+                      : FileImage(File(_profilePhotoPath)),
+                  child: _profilePhotoPath.isNotEmpty
+                      ? null
+                      : _userName.isEmpty
                       ? Icon(
                           Icons.person_rounded,
                           size: 30,
@@ -931,6 +970,18 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
           ),
+          _buildSectionHeader('Perfil'),
+          _buildSettingsGroup(<Widget>[
+            _buildListTile(
+              icon: Icons.person_outline_rounded,
+              title: 'Dados pessoais',
+              subtitle: _userName.isEmpty
+                  ? 'Cadastre seu nome'
+                  : 'Nome: $_userName',
+              iconColor: primaryColor,
+              onTap: _openPersonalData,
+            ),
+          ], isDark),
           _buildSectionHeader('Personalização'),
           _buildSettingsGroup(<Widget>[
             ValueListenableBuilder<ThemeState>(
