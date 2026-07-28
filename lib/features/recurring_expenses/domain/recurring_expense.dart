@@ -44,6 +44,10 @@ class RecurringExpense {
     this.isActive = true,
     this.lastRegisteredAt,
     this.registeredCount = 0,
+    this.undoExpenseId,
+    this.undoPreviousNextDate,
+    this.undoPreviousLastRegisteredAt,
+    this.undoPreviousRegisteredCount,
     required this.createdAt,
     required this.updatedAt,
   }) : assert(amount > 0, 'O valor da recorrência precisa ser maior que zero.'),
@@ -80,6 +84,26 @@ class RecurringExpense {
 
   /// Quantidade de gastos já criados a partir dessa recorrência.
   final int registeredCount;
+
+  /// ID do último gasto que ainda pode ser desfeito.
+  final String? undoExpenseId;
+
+  /// Próximo vencimento existente antes do último registro.
+  final DateTime? undoPreviousNextDate;
+
+  /// Data do último registro antes da operação mais recente.
+  final DateTime? undoPreviousLastRegisteredAt;
+
+  /// Quantidade de registros antes da operação mais recente.
+  final int? undoPreviousRegisteredCount;
+
+  /// Informa se existe um último registro disponível para desfazer.
+  bool get canUndoLastRegistration {
+    return registeredCount > 0 &&
+        undoExpenseId != null &&
+        undoPreviousNextDate != null &&
+        undoPreviousRegisteredCount != null;
+  }
 
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -187,6 +211,11 @@ class RecurringExpense {
       'isActive': isActive ? 1 : 0,
       'lastRegisteredAt': lastRegisteredAt?.toIso8601String(),
       'registeredCount': registeredCount,
+      'undoExpenseId': _emptyToNull(undoExpenseId),
+      'undoPreviousNextDate': undoPreviousNextDate?.toIso8601String(),
+      'undoPreviousLastRegisteredAt': undoPreviousLastRegisteredAt
+          ?.toIso8601String(),
+      'undoPreviousRegisteredCount': undoPreviousRegisteredCount,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -218,6 +247,14 @@ class RecurringExpense {
       isActive: _parseBoolean(map['isActive'], fallback: true),
       lastRegisteredAt: _parseNullableDate(map['lastRegisteredAt']),
       registeredCount: _parseInteger(map['registeredCount'], fallback: 0),
+      undoExpenseId: _parseNullableString(map['undoExpenseId']),
+      undoPreviousNextDate: _parseNullableDate(map['undoPreviousNextDate']),
+      undoPreviousLastRegisteredAt: _parseNullableDate(
+        map['undoPreviousLastRegisteredAt'],
+      ),
+      undoPreviousRegisteredCount: _parseNullableInteger(
+        map['undoPreviousRegisteredCount'],
+      ),
       createdAt: _parseDate(map['createdAt'], fallback: now),
       updatedAt: _parseDate(map['updatedAt'], fallback: now),
     );
@@ -241,6 +278,10 @@ class RecurringExpense {
     bool? isActive,
     Object? lastRegisteredAt = _notProvided,
     int? registeredCount,
+    Object? undoExpenseId = _notProvided,
+    Object? undoPreviousNextDate = _notProvided,
+    Object? undoPreviousLastRegisteredAt = _notProvided,
+    Object? undoPreviousRegisteredCount = _notProvided,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -272,17 +313,38 @@ class RecurringExpense {
           ? this.lastRegisteredAt
           : lastRegisteredAt as DateTime?,
       registeredCount: registeredCount ?? this.registeredCount,
+      undoExpenseId: identical(undoExpenseId, _notProvided)
+          ? this.undoExpenseId
+          : undoExpenseId as String?,
+      undoPreviousNextDate: identical(undoPreviousNextDate, _notProvided)
+          ? this.undoPreviousNextDate
+          : undoPreviousNextDate as DateTime?,
+      undoPreviousLastRegisteredAt:
+          identical(undoPreviousLastRegisteredAt, _notProvided)
+          ? this.undoPreviousLastRegisteredAt
+          : undoPreviousLastRegisteredAt as DateTime?,
+      undoPreviousRegisteredCount:
+          identical(undoPreviousRegisteredCount, _notProvided)
+          ? this.undoPreviousRegisteredCount
+          : undoPreviousRegisteredCount as int?,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
   /// Cria uma cópia representando a recorrência após um registro concluído.
-  RecurringExpense markAsRegistered({required DateTime registeredAt}) {
+  RecurringExpense markAsRegistered({
+    required DateTime registeredAt,
+    required String expenseId,
+  }) {
     return copyWith(
       nextDate: calculateNextDate(),
       lastRegisteredAt: registeredAt,
       registeredCount: registeredCount + 1,
+      undoExpenseId: expenseId,
+      undoPreviousNextDate: nextDate,
+      undoPreviousLastRegisteredAt: lastRegisteredAt,
+      undoPreviousRegisteredCount: registeredCount,
       updatedAt: registeredAt,
     );
   }

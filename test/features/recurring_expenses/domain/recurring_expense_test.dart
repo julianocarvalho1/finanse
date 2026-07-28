@@ -206,7 +206,27 @@ void main() {
 
       final RecurringExpense registered = recurringExpense.markAsRegistered(
         registeredAt: registeredAt,
+        expenseId: 'expense-ultimo-registro',
       );
+
+      expect(registered.nextDate, DateTime(2026, 8, 31, 8));
+      expect(registered.lastRegisteredAt, registeredAt);
+      expect(registered.registeredCount, 3);
+      expect(registered.updatedAt, registeredAt);
+      expect(registered.id, recurringExpense.id);
+
+      expect(registered.undoExpenseId, 'expense-ultimo-registro');
+
+      expect(registered.undoPreviousNextDate, DateTime(2026, 7, 31, 8));
+
+      expect(
+        registered.undoPreviousLastRegisteredAt,
+        recurringExpense.lastRegisteredAt,
+      );
+
+      expect(registered.undoPreviousRegisteredCount, 2);
+
+      expect(registered.canUndoLastRegistration, isTrue);
 
       expect(registered.nextDate, DateTime(2026, 8, 31, 8));
 

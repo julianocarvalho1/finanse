@@ -135,7 +135,7 @@ class BackupService {
 
   static const Set<int> _supportedBackupFormatVersions = <int>{1, 2};
 
-  static const int _databaseVersion = 3;
+  static const int _databaseVersion = 4;
 
   static const String _lastBackupAtKey = 'lastBackupAt';
 

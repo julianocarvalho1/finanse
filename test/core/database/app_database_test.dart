@@ -31,7 +31,7 @@ void main() {
 
   group('AppDatabase', () {
     test(
-      'migra o banco da versão 1 para a versão 3 preservando despesas',
+      'migra o banco da versão 1 para a versão 4 preservando despesas',
       () async {
         final Database oldDatabase = await databaseFactoryFfi.openDatabase(
           databasePath,
@@ -73,7 +73,7 @@ void main() {
 
         final Database migratedDatabase = await AppDatabase.instance.database;
 
-        expect(await migratedDatabase.getVersion(), 3);
+        expect(await migratedDatabase.getVersion(), 4);
 
         final List<Map<String, Object?>> expenseColumns = await migratedDatabase
             .rawQuery('PRAGMA table_info(expenses)');
@@ -132,7 +132,7 @@ void main() {
     );
 
     test(
-      'migra o banco da versão 2 para a versão 3 preservando despesas',
+      'migra o banco da versão 2 para a versão 4 preservando despesas',
       () async {
         final Database oldDatabase = await databaseFactoryFfi.openDatabase(
           databasePath,
@@ -176,7 +176,7 @@ void main() {
 
         final Database migratedDatabase = await AppDatabase.instance.database;
 
-        expect(await migratedDatabase.getVersion(), 3);
+        expect(await migratedDatabase.getVersion(), 4);
 
         final List<Map<String, Object?>> expenses = await migratedDatabase
             .query(AppDatabase.expensesTable);

@@ -144,7 +144,7 @@ void main() {
 
         expect(document['signature'], 'FINANSE_BACKUP');
         expect(document['formatVersion'], 2);
-        expect(document['databaseVersion'], 3);
+        expect(document['databaseVersion'], 4);
 
         expect(
           DateTime.parse(document['createdAt'] as String),

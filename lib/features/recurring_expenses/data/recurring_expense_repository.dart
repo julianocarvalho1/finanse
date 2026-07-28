@@ -354,7 +354,10 @@ class RecurringExpenseRepository {
       );
 
       final RecurringExpense updatedRecurringExpense = recurringExpense
-          .markAsRegistered(registeredAt: effectiveRegisteredAt);
+          .markAsRegistered(
+            registeredAt: effectiveRegisteredAt,
+            expenseId: expense.id,
+          );
 
       final int affectedRows = await transaction.update(
         AppDatabase.recurringExpensesTable,
@@ -404,6 +407,71 @@ class RecurringExpenseRepository {
       if (restoredRecurringExpenses == 0) {
         throw StateError('Não foi possível restaurar a recorrência.');
       }
+    });
+  }
+
+  /// Desfaz o último gasto registrado por uma recorrência.
+  ///
+  /// O estado necessário é lido diretamente do banco, permitindo desfazer
+  /// mesmo depois que a mensagem temporária desapareceu ou a tela foi reaberta.
+  Future<RecurringExpense> undoLastRegistration({
+    required String recurringExpenseId,
+    DateTime? undoneAt,
+  }) async {
+    final Database db = await _database;
+    final DateTime effectiveUndoneAt = undoneAt ?? DateTime.now();
+
+    return db.transaction((Transaction transaction) async {
+      final RecurringExpense current =
+          await _getRecurringExpenseInsideTransaction(
+            transaction: transaction,
+            id: recurringExpenseId,
+          );
+
+      if (!current.canUndoLastRegistration) {
+        throw StateError(
+          'Não existe um último registro disponível para desfazer.',
+        );
+      }
+
+      final String expenseId = current.undoExpenseId!;
+
+      final int deletedExpenses = await transaction.delete(
+        AppDatabase.expensesTable,
+        where: 'id = ? AND recurringExpenseId = ?',
+        whereArgs: <Object?>[expenseId, current.id],
+      );
+
+      if (deletedExpenses == 0) {
+        throw StateError(
+          'O último gasto criado por esta recorrência não foi encontrado.',
+        );
+      }
+
+      final RecurringExpense restoredRecurringExpense = current.copyWith(
+        nextDate: current.undoPreviousNextDate!,
+        lastRegisteredAt: current.undoPreviousLastRegisteredAt,
+        registeredCount: current.undoPreviousRegisteredCount!,
+        undoExpenseId: null,
+        undoPreviousNextDate: null,
+        undoPreviousLastRegisteredAt: null,
+        undoPreviousRegisteredCount: null,
+        updatedAt: effectiveUndoneAt,
+      );
+
+      final int restoredRecurringExpenses = await transaction.update(
+        AppDatabase.recurringExpensesTable,
+        restoredRecurringExpense.toMap(),
+        where: 'id = ?',
+        whereArgs: <Object?>[current.id],
+        conflictAlgorithm: ConflictAlgorithm.abort,
+      );
+
+      if (restoredRecurringExpenses == 0) {
+        throw StateError('Não foi possível restaurar a despesa recorrente.');
+      }
+
+      return restoredRecurringExpense;
     });
   }
 

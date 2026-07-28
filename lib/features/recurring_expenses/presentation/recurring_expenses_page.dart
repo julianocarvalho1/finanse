@@ -332,6 +332,114 @@ class _RecurringExpensesPageState extends State<RecurringExpensesPage> {
     }
   }
 
+  Future<void> _confirmUndoLastRegistration(
+    RecurringExpense recurringExpense,
+  ) async {
+    HapticFeedback.selectionClick();
+
+    final bool? shouldUndo = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          icon: const Icon(Icons.undo_rounded),
+          title: const Text('Desfazer último pagamento?'),
+          content: Text(
+            'O último gasto de '
+            '${_currencyFormatter.format(recurringExpense.amount)} '
+            'será removido e o vencimento anterior será restaurado.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text('Cancelar'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              icon: const Icon(Icons.undo_rounded),
+              label: const Text('Desfazer'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldUndo != true || !mounted) {
+      return;
+    }
+
+    await _undoLastRegistration(recurringExpense);
+  }
+
+  Future<void> _undoLastRegistration(RecurringExpense recurringExpense) async {
+    try {
+      final RecurringExpense restoredRecurringExpense = await _repository
+          .undoLastRegistration(recurringExpenseId: recurringExpense.id);
+
+      bool reminderRestored = true;
+
+      try {
+        await _notificationScheduler.synchronizeRecurringExpense(
+          restoredRecurringExpense,
+        );
+      } catch (_) {
+        reminderRestored = false;
+      }
+
+      expenseNotifier.value++;
+      recurringExpenseNotifier.notify();
+
+      if (!mounted) {
+        return;
+      }
+
+      final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
+      messenger.clearSnackBars();
+
+      messenger.showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 5),
+          persist: false,
+          content: Row(
+            children: <Widget>[
+              Icon(
+                reminderRestored
+                    ? Icons.undo_rounded
+                    : Icons.warning_amber_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  reminderRestored
+                      ? 'Último pagamento desfeito. O gasto foi removido '
+                            'e o vencimento anterior foi restaurado.'
+                      : 'Pagamento desfeito, mas o lembrete '
+                            'não pôde ser restaurado.',
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      final String message = error is StateError
+          ? error.message.toString()
+          : 'Não foi possível desfazer o último pagamento.';
+
+      _showErrorMessage(message);
+    }
+  }
+
   Future<void> _toggleActiveState(RecurringExpense recurringExpense) async {
     HapticFeedback.selectionClick();
 
@@ -601,11 +709,12 @@ class _RecurringExpensesPageState extends State<RecurringExpensesPage> {
         final ThemeData theme = Theme.of(modalContext);
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             AppSpacing.pageHorizontal,
             AppSpacing.sm,
             AppSpacing.pageHorizontal,
-            AppSpacing.xl,
+            AppSpacing.xl +
+                MediaQuery.of(modalContext).viewPadding.bottom,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -726,6 +835,21 @@ class _RecurringExpensesPageState extends State<RecurringExpensesPage> {
                   ),
                 ],
               ),
+              if (recurringExpense.canUndoLastRegistration) ...<Widget>[
+                const SizedBox(height: AppSpacing.sm),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(modalContext).pop();
+
+                      _confirmUndoLastRegistration(recurringExpense);
+                    },
+                    icon: const Icon(Icons.undo_rounded),
+                    label: const Text('Desfazer último pagamento'),
+                  ),
+                ),
+              ],
             ],
           ),
         );

@@ -54,11 +54,15 @@ void main() {
           isActive IN (0, 1)
         ),
         lastRegisteredAt TEXT,
-        registeredCount INTEGER NOT NULL DEFAULT 0 CHECK(
-          registeredCount >= 0
-        ),
-        createdAt TEXT NOT NULL,
-        updatedAt TEXT NOT NULL,
+registeredCount INTEGER NOT NULL DEFAULT 0 CHECK(
+  registeredCount >= 0
+),
+undoExpenseId TEXT,
+undoPreviousNextDate TEXT,
+undoPreviousLastRegisteredAt TEXT,
+undoPreviousRegisteredCount INTEGER,
+createdAt TEXT NOT NULL,
+updatedAt TEXT NOT NULL,
         CHECK(
           frequency != 'custom'
           OR (
@@ -656,6 +660,100 @@ void main() {
       expect(expenseRows.first['recurringExpenseId'], recurringExpense.id);
       expect(expenseRows.first['amount'], 210);
     });
+    test(
+      'desfaz o último registro mesmo depois de perder o resultado temporário',
+      () async {
+        final DateTime createdAt = DateTime(2026, 1, 1, 8);
+        final DateTime firstRegisteredAt = DateTime(2026, 1, 31, 12);
+        final DateTime secondRegisteredAt = DateTime(2026, 2, 28, 12);
+        final DateTime undoneAt = DateTime(2026, 3, 1, 9);
+
+        final RecurringExpense recurringExpense = RecurringExpense(
+          id: 'recurring-permanent-undo-1',
+          amount: 89.90,
+          categoryName: 'Contas',
+          description: 'Internet',
+          paymentMethod: 'Pix',
+          frequency: RecurringFrequency.monthly,
+          nextDate: DateTime(2026, 1, 31, 8),
+          createdAt: createdAt,
+          updatedAt: createdAt,
+        );
+
+        await repository.insertRecurringExpense(recurringExpense);
+
+        final RecurringRegistrationResult firstRegistration = await repository
+            .registerRecurringExpense(
+              recurringExpenseId: recurringExpense.id,
+              registeredAt: firstRegisteredAt,
+            );
+
+        final RecurringRegistrationResult secondRegistration = await repository
+            .registerRecurringExpense(
+              recurringExpenseId: recurringExpense.id,
+              registeredAt: secondRegisteredAt,
+            );
+
+        expect(
+          secondRegistration.updatedRecurringExpense.nextDate,
+          DateTime(2026, 3, 28, 8),
+        );
+
+        expect(secondRegistration.updatedRecurringExpense.registeredCount, 2);
+
+        expect(
+          secondRegistration.updatedRecurringExpense.canUndoLastRegistration,
+          isTrue,
+        );
+
+        final RecurringExpense restoredRecurringExpense = await repository
+            .undoLastRegistration(
+              recurringExpenseId: recurringExpense.id,
+              undoneAt: undoneAt,
+            );
+
+        expect(restoredRecurringExpense.nextDate, DateTime(2026, 2, 28, 8));
+
+        expect(restoredRecurringExpense.lastRegisteredAt, firstRegisteredAt);
+
+        expect(restoredRecurringExpense.registeredCount, 1);
+        expect(restoredRecurringExpense.updatedAt, undoneAt);
+
+        expect(restoredRecurringExpense.undoExpenseId, isNull);
+        expect(restoredRecurringExpense.undoPreviousNextDate, isNull);
+        expect(restoredRecurringExpense.undoPreviousLastRegisteredAt, isNull);
+        expect(restoredRecurringExpense.undoPreviousRegisteredCount, isNull);
+
+        expect(restoredRecurringExpense.canUndoLastRegistration, isFalse);
+
+        final List<Map<String, Object?>> expenseRows = await database.query(
+          AppDatabase.expensesTable,
+          where: 'recurringExpenseId = ?',
+          whereArgs: <Object?>[recurringExpense.id],
+          orderBy: 'createdAt ASC',
+        );
+
+        expect(expenseRows, hasLength(1));
+
+        expect(expenseRows.first['id'], firstRegistration.expense.id);
+
+        expect(
+          expenseRows.any(
+            (Map<String, Object?> row) =>
+                row['id'] == secondRegistration.expense.id,
+          ),
+          isFalse,
+        );
+
+        final RecurringExpense? savedRecurringExpense = await repository
+            .getRecurringExpenseById(recurringExpense.id);
+
+        expect(savedRecurringExpense, isNotNull);
+        expect(savedRecurringExpense!.registeredCount, 1);
+        expect(savedRecurringExpense.nextDate, DateTime(2026, 2, 28, 8));
+        expect(savedRecurringExpense.canUndoLastRegistration, isFalse);
+      },
+    );
     test('não registra uma recorrência inexistente', () async {
       await expectLater(
         repository.registerRecurringExpense(

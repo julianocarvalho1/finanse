@@ -11,7 +11,7 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._init();
 
   static const String _databaseName = 'finanse.db';
-  static const int _databaseVersion = 3;
+  static const int _databaseVersion = 4;
 
   static const String expensesTable = 'expenses';
   static const String recurringExpensesTable = 'recurring_expenses';
@@ -77,6 +77,35 @@ class AppDatabase {
         definition: 'TEXT',
       );
     }
+    if (oldVersion < 4) {
+      await _addColumnWhenMissing(
+        db: db,
+        table: recurringExpensesTable,
+        column: 'undoExpenseId',
+        definition: 'TEXT',
+      );
+
+      await _addColumnWhenMissing(
+        db: db,
+        table: recurringExpensesTable,
+        column: 'undoPreviousNextDate',
+        definition: 'TEXT',
+      );
+
+      await _addColumnWhenMissing(
+        db: db,
+        table: recurringExpensesTable,
+        column: 'undoPreviousLastRegisteredAt',
+        definition: 'TEXT',
+      );
+
+      await _addColumnWhenMissing(
+        db: db,
+        table: recurringExpensesTable,
+        column: 'undoPreviousRegisteredCount',
+        definition: 'INTEGER',
+      );
+    }
 
     await _createIndexes(db);
   }
@@ -130,10 +159,15 @@ class AppDatabase {
         lastRegisteredAt TEXT,
 
         registeredCount INTEGER NOT NULL DEFAULT 0 CHECK(
-          registeredCount >= 0
-        ),
+  registeredCount >= 0
+),
 
-        createdAt TEXT NOT NULL,
+undoExpenseId TEXT,
+undoPreviousNextDate TEXT,
+undoPreviousLastRegisteredAt TEXT,
+undoPreviousRegisteredCount INTEGER,
+
+createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL,
 
         CHECK(
