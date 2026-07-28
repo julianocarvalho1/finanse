@@ -30,12 +30,24 @@ class RecurringRegistrationResult {
 /// dentro da mesma transação. Dessa forma, o aplicativo não cria o gasto
 /// sem atualizar a recorrência, nem atualiza a recorrência sem criar o gasto.
 class RecurringExpenseRepository {
-  RecurringExpenseRepository({AppDatabase? appDatabase})
-    : _appDatabase = appDatabase ?? AppDatabase.instance;
+  RecurringExpenseRepository({AppDatabase? appDatabase, Database? database})
+    : assert(
+        appDatabase == null || database == null,
+        'Informe AppDatabase ou Database, não os dois.',
+      ),
+      _appDatabase = appDatabase ?? AppDatabase.instance,
+      _injectedDatabase = database;
 
   final AppDatabase _appDatabase;
+  final Database? _injectedDatabase;
 
   Future<Database> get _database async {
+    final Database? injectedDatabase = _injectedDatabase;
+
+    if (injectedDatabase != null) {
+      return injectedDatabase;
+    }
+
     return _appDatabase.database;
   }
 

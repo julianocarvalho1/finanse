@@ -39,6 +39,7 @@ dev_dependencies:
     sdk: flutter
 
   flutter_lints: ^6.0.0
+  sqflite_common_ffi: ^2.4.2
 
 # Correção temporária para incompatibilidade do jni 1.0.1
 # com a configuração atual do Android Gradle Plugin.

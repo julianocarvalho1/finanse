@@ -8,14 +8,26 @@ import '../domain/expense.dart';
 /// As telas não devem acessar o banco diretamente. Toda inclusão, edição,
 /// exclusão ou consulta de despesas deve passar por este repositório.
 class ExpenseRepository {
-  ExpenseRepository({AppDatabase? appDatabase})
-    : _appDatabase = appDatabase ?? AppDatabase.instance;
+  ExpenseRepository({AppDatabase? appDatabase, Database? database})
+    : assert(
+        appDatabase == null || database == null,
+        'Informe AppDatabase ou Database, não os dois.',
+      ),
+      _appDatabase = appDatabase ?? AppDatabase.instance,
+      _injectedDatabase = database;
 
   static const String _tableName = 'expenses';
 
   final AppDatabase _appDatabase;
+  final Database? _injectedDatabase;
 
   Future<Database> get _database async {
+    final Database? injectedDatabase = _injectedDatabase;
+
+    if (injectedDatabase != null) {
+      return injectedDatabase;
+    }
+
     return _appDatabase.database;
   }
 
