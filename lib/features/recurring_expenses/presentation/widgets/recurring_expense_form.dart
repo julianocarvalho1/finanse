@@ -559,7 +559,7 @@ class _RecurringExpenseFormState extends State<RecurringExpenseForm> {
                   _SectionTitle(icon: Icons.repeat_rounded, title: 'Repetição'),
                   const SizedBox(height: AppSpacing.sm),
                   DropdownButtonFormField<RecurringFrequency>(
-                    value: _frequency,
+                    initialValue: _frequency,
                     isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Frequência',
@@ -668,7 +668,7 @@ class _RecurringExpenseFormState extends State<RecurringExpenseForm> {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   DropdownButtonFormField<String>(
-                    value: _selectedPaymentMethod,
+                    initialValue: _selectedPaymentMethod,
                     isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Forma de pagamento',

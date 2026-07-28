@@ -587,7 +587,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return ValueListenableBuilder<ThemeState>(
       valueListenable: themeNotifier,
       builder: (BuildContext context, ThemeState themeState, Widget? child) {
-        final bool isSelected = themeState.color.value == color.value;
+        final bool isSelected = themeState.color.toARGB32() == color.toARGB32();
 
         final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -613,7 +613,7 @@ class _ProfilePageState extends State<ProfilePage> {
               boxShadow: <BoxShadow>[
                 if (isSelected)
                   BoxShadow(
-                    color: color.withOpacity(0.4),
+                    color: color.withValues(alpha: 0.4),
                     blurRadius: 10,
                     spreadRadius: 2,
                   ),
@@ -651,7 +651,7 @@ class _ProfilePageState extends State<ProfilePage> {
             boxShadow: isSelected && !isDark
                 ? <BoxShadow>[
                     BoxShadow(
-                      color: primaryColor.withOpacity(0.3),
+                      color: primaryColor.withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -689,7 +689,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ? <BoxShadow>[]
             : <BoxShadow>[
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -889,7 +889,7 @@ class _ProfilePageState extends State<ProfilePage> {
               children: <Widget>[
                 CircleAvatar(
                   radius: 32,
-                  backgroundColor: primaryColor.withOpacity(0.15),
+                  backgroundColor: primaryColor.withValues(alpha: 0.15),
                   child: Text(
                     'L',
                     style: TextStyle(

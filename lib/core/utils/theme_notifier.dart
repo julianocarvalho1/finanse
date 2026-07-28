@@ -37,7 +37,7 @@ class ThemeNotifier extends ValueNotifier<ThemeState> {
   Future<void> updateColor(Color newColor) async {
     value = ThemeState(color: newColor, mode: value.mode); // Atualiza só a cor
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('themeColor', newColor.value);
+    await prefs.setInt('themeColor', newColor.toARGB32());
   }
 
   Future<void> updateMode(ThemeMode newMode) async {

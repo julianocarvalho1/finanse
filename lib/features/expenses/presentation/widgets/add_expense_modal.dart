@@ -637,7 +637,7 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: _categories.length,
-                  separatorBuilder: (_, __) {
+                  separatorBuilder: (_, _) {
                     return const SizedBox(width: AppSpacing.sm);
                   },
                   itemBuilder: (BuildContext context, int index) {

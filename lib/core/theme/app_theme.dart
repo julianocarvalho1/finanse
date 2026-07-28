@@ -182,7 +182,7 @@ abstract final class AppTheme {
         border: defaultInputBorder,
         enabledBorder: defaultInputBorder,
         disabledBorder: defaultInputBorder.copyWith(
-          borderSide: BorderSide(color: disabledColor.withOpacity(0.45)),
+          borderSide: BorderSide(color: disabledColor.withValues(alpha: 0.45)),
         ),
         focusedBorder: focusedInputBorder,
         errorBorder: errorInputBorder,
@@ -203,7 +203,7 @@ abstract final class AppTheme {
           ),
           backgroundColor: seedColor,
           foregroundColor: foregroundOnPrimary,
-          disabledBackgroundColor: disabledColor.withOpacity(0.35),
+          disabledBackgroundColor: disabledColor.withValues(alpha: 0.35),
           disabledForegroundColor: textMutedColor,
           elevation: 0,
           shadowColor: Colors.transparent,
@@ -226,7 +226,7 @@ abstract final class AppTheme {
           ),
           backgroundColor: seedColor,
           foregroundColor: foregroundOnPrimary,
-          disabledBackgroundColor: disabledColor.withOpacity(0.35),
+          disabledBackgroundColor: disabledColor.withValues(alpha: 0.35),
           disabledForegroundColor: textMutedColor,
           textStyle: textTheme.labelLarge,
           shape: RoundedRectangleBorder(
@@ -328,7 +328,7 @@ abstract final class AppTheme {
         backgroundColor: navigationColor,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        indicatorColor: seedColor.withOpacity(0.16),
+        indicatorColor: seedColor.withValues(alpha: 0.16),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         iconTheme: WidgetStateProperty.resolveWith<IconThemeData>((
           Set<WidgetState> states,
@@ -383,8 +383,8 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       chipTheme: ChipThemeData(
         backgroundColor: surfaceSecondaryColor,
-        selectedColor: seedColor.withOpacity(0.16),
-        disabledColor: disabledColor.withOpacity(0.20),
+        selectedColor: seedColor.withValues(alpha: 0.16),
+        disabledColor: disabledColor.withValues(alpha: 0.20),
         side: BorderSide(color: borderColor),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
@@ -409,7 +409,7 @@ abstract final class AppTheme {
           Set<WidgetState> states,
         ) {
           if (states.contains(WidgetState.disabled)) {
-            return disabledColor.withOpacity(0.35);
+            return disabledColor.withValues(alpha: 0.35);
           }
 
           if (states.contains(WidgetState.selected)) {
@@ -443,7 +443,7 @@ abstract final class AppTheme {
           Set<WidgetState> states,
         ) {
           if (states.contains(WidgetState.disabled)) {
-            return disabledColor.withOpacity(0.25);
+            return disabledColor.withValues(alpha: 0.25);
           }
 
           if (states.contains(WidgetState.selected)) {
@@ -482,7 +482,7 @@ abstract final class AppTheme {
         elevation: 0,
         modalElevation: 0,
         showDragHandle: true,
-        dragHandleColor: textMutedColor.withOpacity(0.55),
+        dragHandleColor: textMutedColor.withValues(alpha: 0.55),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppSpacing.modalRadius),

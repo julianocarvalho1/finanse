@@ -73,24 +73,33 @@ class _StatsPageState extends State<StatsPage> {
     List<Expense> filtered = [];
 
     // Lógica de Filtro de Período
-    for (var e in allExpenses) {
+    for (final Expense e in allExpenses) {
       if (_selectedPeriodLabel == 'Este mês') {
-        if (e.date.year == now.year && e.date.month == now.month)
+        if (e.date.year == now.year && e.date.month == now.month) {
           filtered.add(e);
+        }
       } else if (_selectedPeriodLabel == 'Mês passado') {
-        final prevMonth = DateTime(now.year, now.month - 1, 1);
-        if (e.date.year == prevMonth.year && e.date.month == prevMonth.month)
+        final DateTime prevMonth = DateTime(now.year, now.month - 1, 1);
+
+        if (e.date.year == prevMonth.year && e.date.month == prevMonth.month) {
           filtered.add(e);
+        }
       } else if (_selectedPeriodLabel == 'Mês retrasado') {
-        final prevPrev = DateTime(now.year, now.month - 2, 1);
-        if (e.date.year == prevPrev.year && e.date.month == prevPrev.month)
+        final DateTime prevPrev = DateTime(now.year, now.month - 2, 1);
+
+        if (e.date.year == prevPrev.year && e.date.month == prevPrev.month) {
           filtered.add(e);
+        }
       } else if (_selectedPeriodLabel == 'Últimos 30 dias') {
-        final thirtyDaysAgo = now.subtract(const Duration(days: 30));
-        if (e.date.isAfter(thirtyDaysAgo) || DateUtils.isSameDay(e.date, now))
+        final DateTime thirtyDaysAgo = now.subtract(const Duration(days: 30));
+
+        if (e.date.isAfter(thirtyDaysAgo) || DateUtils.isSameDay(e.date, now)) {
           filtered.add(e);
+        }
       } else if (_selectedPeriodLabel == 'Este ano') {
-        if (e.date.year == now.year) filtered.add(e);
+        if (e.date.year == now.year) {
+          filtered.add(e);
+        }
       } else if (_selectedPeriodLabel == 'Período personalizado' &&
           _customDateRange != null) {
         if (e.date.isAfter(
@@ -105,12 +114,13 @@ class _StatsPageState extends State<StatsPage> {
     }
 
     double total = 0;
-    Map<String, List<Expense>> grouped = {};
 
-    for (var e in filtered) {
+    final Map<String, List<Expense>> grouped = <String, List<Expense>>{};
+
+    for (final Expense e in filtered) {
       total += e.amount;
-      if (!grouped.containsKey(e.categoryName)) grouped[e.categoryName] = [];
-      grouped[e.categoryName]!.add(e);
+
+      grouped.putIfAbsent(e.categoryName, () => <Expense>[]).add(e);
     }
 
     List<CategoryStat> stats = [];
