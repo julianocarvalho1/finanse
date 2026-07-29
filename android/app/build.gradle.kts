@@ -1,3 +1,6 @@
+﻿import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
 
@@ -6,13 +9,22 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(
+        FileInputStream(keystorePropertiesFile),
+    )
+}
+
 android {
     namespace = "com.finanse.finanse"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        // Necessário para as notificações programadas.
+        // Necessario para as notificacoes programadas.
         isCoreLibraryDesugaringEnabled = true
 
         sourceCompatibility = JavaVersion.VERSION_17
@@ -20,7 +32,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.finanse.finanse"
+        applicationId = "com.julianoapps.finanse"
 
         // O local_auth 3 exige Android SDK 24 ou superior.
         minSdk = 24
@@ -33,11 +45,28 @@ android {
         multiDexEnabled = true
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias =
+                keystoreProperties["keyAlias"] as String
+
+            keyPassword =
+                keystoreProperties["keyPassword"] as String
+
+            storeFile =
+                keystoreProperties["storeFile"]?.let {
+                    file(it)
+                }
+
+            storePassword =
+                keystoreProperties["storePassword"] as String
+        }
+    }
+
     buildTypes {
         release {
-            // A assinatura definitiva será configurada
-            // na etapa de lançamento.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig =
+                signingConfigs.getByName("release")
         }
     }
 }
@@ -58,3 +87,4 @@ dependencies {
 flutter {
     source = "../.."
 }
+
