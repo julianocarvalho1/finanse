@@ -816,33 +816,39 @@ class _ProfilePageState extends State<ProfilePage> {
         iconColor ??
         (isDark ? AppColors.darkTextSecondary : const Color(0xFF535F66));
 
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      leading: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: iconBackgroundColor,
-          borderRadius: BorderRadius.circular(12),
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: iconBackgroundColor,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: finalIconColor, size: 22),
         ),
-        child: Icon(icon, color: finalIconColor, size: 22),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: textPrimary,
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: textPrimary,
+          ),
         ),
+        subtitle: subtitle != null
+            ? Text(
+                subtitle,
+                style: TextStyle(fontSize: 13, color: textSecondary),
+              )
+            : null,
+        trailing: Icon(
+          Icons.arrow_forward_ios_rounded,
+          color: textMuted,
+          size: 16,
+        ),
+        onTap: onTap,
       ),
-      subtitle: subtitle != null
-          ? Text(subtitle, style: TextStyle(fontSize: 13, color: textSecondary))
-          : null,
-      trailing: Icon(
-        Icons.arrow_forward_ios_rounded,
-        color: textMuted,
-        size: 16,
-      ),
-      onTap: onTap,
     );
   }
 
@@ -869,48 +875,53 @@ class _ProfilePageState extends State<ProfilePage> {
 
     final Color primaryColor = Theme.of(context).colorScheme.primary;
 
-    return SwitchListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      secondary: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: iconBackgroundColor,
-          borderRadius: BorderRadius.circular(12),
+    return Material(
+      type: MaterialType.transparency,
+      child: SwitchListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        secondary: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: iconBackgroundColor,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            icon,
+            color: isDark
+                ? AppColors.darkTextSecondary
+                : const Color(0xFF535F66),
+            size: 22,
+          ),
         ),
-        child: Icon(
-          icon,
-          color: isDark ? AppColors.darkTextSecondary : const Color(0xFF535F66),
-          size: 22,
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: textPrimary,
+          ),
         ),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: textPrimary,
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(fontSize: 13, color: textSecondary),
         ),
+        value: value,
+
+        // Estado ativado: trilho colorido e bolinha branca.
+        activeThumbColor: Colors.white,
+        activeTrackColor: primaryColor,
+
+        // Estado desativado: contraste visível em ambos os temas.
+        inactiveThumbColor: isDark ? AppColors.darkTextMuted : Colors.white,
+        inactiveTrackColor: isDark
+            ? AppColors.darkSurface
+            : const Color(0xFFB8C0C7),
+
+        onChanged: (bool newValue) {
+          onChanged(newValue);
+          HapticFeedback.lightImpact();
+        },
       ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(fontSize: 13, color: textSecondary),
-      ),
-      value: value,
-
-      // Estado ativado: trilho colorido e bolinha branca.
-      activeThumbColor: Colors.white,
-      activeTrackColor: primaryColor,
-
-      // Estado desativado: contraste visível em ambos os temas.
-      inactiveThumbColor: isDark ? AppColors.darkTextMuted : Colors.white,
-      inactiveTrackColor: isDark
-          ? AppColors.darkSurface
-          : const Color(0xFFB8C0C7),
-
-      onChanged: (bool newValue) {
-        onChanged(newValue);
-        HapticFeedback.lightImpact();
-      },
     );
   }
 
