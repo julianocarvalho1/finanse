@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/notifications/notification_service.dart';
 import '../../../../core/security/biometric_service.dart';
+import '../../../../core/security/pin_security_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/expense_notifier.dart';
 import '../../../../core/utils/theme_notifier.dart';
@@ -17,6 +18,7 @@ import '../../recurring_expenses/data/recurring_notification_scheduler.dart';
 import '../../recurring_expenses/presentation/recurring_expenses_page.dart';
 import 'backup_page.dart';
 import 'export_page.dart';
+import 'pin_settings_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -33,6 +35,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String _profilePhotoPath = '';
 
   bool _useBiometrics = false;
+  bool _hasPin = false;
   bool _notificationsEnabled = false;
 
   bool _isUpdatingNotifications = false;
@@ -80,6 +83,8 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     }
 
+    final bool hasPin = await PinSecurityService.instance.hasPin();
+
     if (!mounted) {
       return;
     }
@@ -89,7 +94,7 @@ class _ProfilePageState extends State<ProfilePage> {
       _userName = savedUserName;
       _profilePhotoPath = savedProfilePhotoPath;
       _useBiometrics = preferences.getBool('useBiometrics') ?? false;
-
+      _hasPin = hasPin;
       _notificationsEnabled = notificationsActuallyEnabled;
     });
   }
@@ -192,6 +197,30 @@ class _ProfilePageState extends State<ProfilePage> {
         });
       }
     }
+  }
+
+  Future<void> _openPinSettings() async {
+    HapticFeedback.selectionClick();
+
+    final bool? pinEnabled = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (BuildContext context) {
+          return const PinSettingsPage();
+        },
+      ),
+    );
+
+    if (!mounted || pinEnabled == null) {
+      return;
+    }
+
+    setState(() {
+      _hasPin = pinEnabled;
+    });
+
+    _showProfileMessage(
+      pinEnabled ? 'PIN de acesso ativado.' : 'PIN de acesso removido.',
+    );
   }
 
   Future<void> _changeBiometrics(bool newValue) async {
@@ -1062,7 +1091,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: <Widget>[
-                      _buildColorOption(const Color(0xFF22C55E)),
                       _buildColorOption(const Color(0xFF3B82F6)),
                       _buildColorOption(const Color(0xFF8B5CF6)),
                       _buildColorOption(const Color(0xFFF97316)),
@@ -1120,6 +1148,16 @@ class _ProfilePageState extends State<ProfilePage> {
                 },
               ),
             ],
+            Divider(height: 1, color: dividerColor, indent: 20, endIndent: 20),
+            _buildListTile(
+              icon: Icons.password_rounded,
+              title: 'PIN de acesso',
+              subtitle: _hasPin
+                  ? 'PIN ativo — toque para alterar ou remover'
+                  : 'Criar um PIN de 4 a 6 números',
+              iconColor: primaryColor,
+              onTap: _openPinSettings,
+            ),
           ], isDark),
           _buildSectionHeader('Segurança e Biometria'),
           _buildSettingsGroup(<Widget>[
