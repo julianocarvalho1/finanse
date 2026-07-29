@@ -11,7 +11,7 @@
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
 
         <item name="android:windowSplashScreenBackground">#102776</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/finanse_native_splash_2026</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/transparent_splash</item>
 
     </style>
 
@@ -24,3 +24,4 @@
     </style>
 
 </resources>
+

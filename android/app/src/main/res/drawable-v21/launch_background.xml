@@ -7,15 +7,4 @@
         </shape>
     </item>
 
-    <item
-        android:width="260dp"
-        android:height="260dp"
-        android:gravity="center">
-
-        <bitmap
-            android:gravity="center"
-            android:src="@drawable/finanse_native_splash_2026" />
-
-    </item>
-
 </layer-list>

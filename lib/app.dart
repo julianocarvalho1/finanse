@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'core/presentation/finanse_splash_screen.dart';
 import 'core/presentation/lock_screen.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/theme_notifier.dart';
@@ -64,7 +65,9 @@ class FinanseApp extends StatelessWidget {
               ),
             );
           },
-          home: const LockScreen(child: MainShell()),
+          home: const FinanseSplashScreen(
+            child: LockScreen(child: MainShell()),
+          ),
         );
       },
     );
