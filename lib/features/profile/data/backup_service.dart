@@ -136,6 +136,16 @@ class BackupService {
   static const Set<int> _supportedBackupFormatVersions = <int>{1, 2};
 
   static const int _databaseVersion = 4;
+  static const int _maxProfilePhotoBytes = 8 * 1024 * 1024;
+
+  static const Set<String> _supportedProfilePhotoExtensions = <String>{
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.webp',
+    '.heic',
+    '.heif',
+  };
 
   static const String _lastBackupAtKey = 'lastBackupAt';
 
@@ -146,6 +156,7 @@ class BackupService {
   /// Preferências que não devem ser copiadas entre aparelhos.
   static const Set<String> _protectedPreferenceKeys = <String>{
     'useBiometrics',
+    'profilePhotoPath',
     _lastBackupAtKey,
     _lastBackupFileNameKey,
     _lastRestoreAtKey,
@@ -171,6 +182,10 @@ class BackupService {
       final SharedPreferences preferences =
           await SharedPreferences.getInstance();
 
+      final Map<String, dynamic>? profilePhoto = await _encodeProfilePhoto(
+        preferences,
+      );
+
       final Map<String, dynamic> payload = <String, dynamic>{
         'expenses': expenses
             .map<Map<String, Object?>>((Map<String, Object?> row) {
@@ -183,6 +198,7 @@ class BackupService {
             })
             .toList(growable: false),
         'preferences': _encodePreferences(preferences),
+        'profilePhoto': profilePhoto,
       };
 
       final DateTime createdAt = _nowProvider();
@@ -408,6 +424,10 @@ class BackupService {
         preferences: preferences,
         encodedPreferences: validated.preferences,
       );
+      await _restoreProfilePhoto(
+        preferences: preferences,
+        profilePhoto: validated.profilePhoto,
+      );
 
       final DateTime restoredAt = _nowProvider();
 
@@ -612,6 +632,160 @@ class BackupService {
     }
   }
 
+  Future<Map<String, dynamic>?> _encodeProfilePhoto(
+    SharedPreferences preferences,
+  ) async {
+    final String profilePhotoPath =
+        preferences.getString('profilePhotoPath')?.trim() ?? '';
+
+    if (profilePhotoPath.isEmpty) {
+      return null;
+    }
+
+    final File profilePhoto = File(profilePhotoPath);
+
+    if (!await profilePhoto.exists()) {
+      await preferences.remove('profilePhotoPath');
+      return null;
+    }
+
+    final List<int> photoBytes = await profilePhoto.readAsBytes();
+
+    if (photoBytes.isEmpty) {
+      throw const BackupException(
+        'A foto de perfil está vazia e não pôde ser adicionada ao backup.',
+      );
+    }
+
+    if (photoBytes.length > _maxProfilePhotoBytes) {
+      throw const BackupException(
+        'A foto de perfil é grande demais para ser incluída no backup.',
+      );
+    }
+
+    String extension = path.extension(profilePhoto.path).toLowerCase();
+
+    if (!_supportedProfilePhotoExtensions.contains(extension)) {
+      extension = '.jpg';
+    }
+
+    return <String, dynamic>{
+      'extension': extension,
+      'data': base64Encode(photoBytes),
+    };
+  }
+
+  _ValidatedProfilePhoto? _validateProfilePhoto(dynamic rawProfilePhoto) {
+    if (rawProfilePhoto == null) {
+      return null;
+    }
+
+    if (rawProfilePhoto is! Map) {
+      throw const BackupException(
+        'A foto de perfil do backup possui formato inválido.',
+      );
+    }
+
+    final Map<String, dynamic> profilePhoto = Map<String, dynamic>.from(
+      rawProfilePhoto,
+    );
+
+    final dynamic rawExtension = profilePhoto['extension'];
+    final dynamic rawData = profilePhoto['data'];
+
+    if (rawExtension is! String ||
+        !_supportedProfilePhotoExtensions.contains(
+          rawExtension.toLowerCase(),
+        )) {
+      throw const BackupException(
+        'A extensão da foto de perfil do backup é inválida.',
+      );
+    }
+
+    if (rawData is! String || rawData.trim().isEmpty) {
+      throw const BackupException('A foto de perfil do backup está ausente.');
+    }
+
+    final List<int> photoBytes;
+
+    try {
+      photoBytes = base64Decode(rawData);
+    } on FormatException {
+      throw const BackupException(
+        'A foto de perfil do backup está corrompida.',
+      );
+    }
+
+    if (photoBytes.isEmpty) {
+      throw const BackupException('A foto de perfil do backup está vazia.');
+    }
+
+    if (photoBytes.length > _maxProfilePhotoBytes) {
+      throw const BackupException(
+        'A foto de perfil do backup ultrapassa o tamanho permitido.',
+      );
+    }
+
+    return _ValidatedProfilePhoto(
+      extension: rawExtension.toLowerCase(),
+      bytes: photoBytes,
+    );
+  }
+
+  Future<void> _restoreProfilePhoto({
+    required SharedPreferences preferences,
+    required _ValidatedProfilePhoto? profilePhoto,
+  }) async {
+    final String currentPhotoPath =
+        preferences.getString('profilePhotoPath')?.trim() ?? '';
+
+    File? restoredPhoto;
+
+    if (profilePhoto != null) {
+      final Directory documentsDirectory = await _documentsDirectoryProvider();
+
+      final Directory profileDirectory = Directory(
+        path.join(documentsDirectory.path, 'profile'),
+      );
+
+      if (!await profileDirectory.exists()) {
+        await profileDirectory.create(recursive: true);
+      }
+
+      restoredPhoto = File(
+        path.join(
+          profileDirectory.path,
+          'profile_photo_'
+          '${_nowProvider().millisecondsSinceEpoch}'
+          '${profilePhoto.extension}',
+        ),
+      );
+
+      await restoredPhoto.writeAsBytes(profilePhoto.bytes, flush: true);
+
+      if (!await restoredPhoto.exists() || await restoredPhoto.length() <= 0) {
+        throw const BackupException(
+          'Não foi possível restaurar a foto de perfil.',
+        );
+      }
+    }
+
+    await preferences.remove('profilePhotoPath');
+
+    if (currentPhotoPath.isNotEmpty &&
+        currentPhotoPath != restoredPhoto?.path) {
+      final File currentPhoto = File(currentPhotoPath);
+
+      if (await currentPhoto.exists()) {
+        await currentPhoto.delete();
+      }
+    }
+
+    if (restoredPhoto != null) {
+      await preferences.setString('profilePhotoPath', restoredPhoto.path);
+    }
+  }
+
   String _decodeBackupContent(List<int> fileBytes) {
     String content;
 
@@ -691,6 +865,7 @@ class BackupService {
     final dynamic rawRecurringExpenses = payload['recurringExpenses'];
 
     final dynamic rawPreferences = payload['preferences'];
+    final dynamic rawProfilePhoto = payload['profilePhoto'];
 
     if (rawExpenses is! List ||
         rawRecurringExpenses is! List ||
@@ -712,6 +887,10 @@ class BackupService {
 
     final Map<String, dynamic> preferences = Map<String, dynamic>.from(
       rawPreferences,
+    );
+
+    final _ValidatedProfilePhoto? profilePhoto = _validateProfilePhoto(
+      rawProfilePhoto,
     );
 
     final dynamic rawIntegrity = document['integrity'];
@@ -775,6 +954,7 @@ class BackupService {
       expenses: expenses,
       recurringExpenses: recurringExpenses,
       preferences: preferences,
+      profilePhoto: profilePhoto,
     );
   }
 
@@ -1100,6 +1280,7 @@ class _ValidatedBackup {
     required this.expenses,
     required this.recurringExpenses,
     required this.preferences,
+    required this.profilePhoto,
   });
 
   final DateTime createdAt;
@@ -1109,4 +1290,14 @@ class _ValidatedBackup {
   final List<Map<String, Object?>> recurringExpenses;
 
   final Map<String, dynamic> preferences;
+
+  final _ValidatedProfilePhoto? profilePhoto;
+}
+
+class _ValidatedProfilePhoto {
+  const _ValidatedProfilePhoto({required this.extension, required this.bytes});
+
+  final String extension;
+
+  final List<int> bytes;
 }
