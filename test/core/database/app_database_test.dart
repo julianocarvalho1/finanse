@@ -31,7 +31,7 @@ void main() {
 
   group('AppDatabase', () {
     test(
-      'migra o banco da versão 1 para a versão 4 preservando despesas',
+      'migra o banco da versão 1 para a versão 5 preservando despesas',
       () async {
         final Database oldDatabase = await databaseFactoryFfi.openDatabase(
           databasePath,
@@ -73,7 +73,7 @@ void main() {
 
         final Database migratedDatabase = await AppDatabase.instance.database;
 
-        expect(await migratedDatabase.getVersion(), 4);
+        expect(await migratedDatabase.getVersion(), 5);
 
         final List<Map<String, Object?>> expenseColumns = await migratedDatabase
             .rawQuery('PRAGMA table_info(expenses)');
@@ -112,6 +112,19 @@ void main() {
 
         expect(recurringTables, hasLength(1));
 
+        final List<Map<String, Object?>> reserveTables =
+            await migratedDatabase.rawQuery(
+              '''
+          SELECT name
+          FROM sqlite_master
+          WHERE type = 'table'
+            AND name = ?
+          ''',
+              <Object?>[AppDatabase.reserveTransactionsTable],
+            );
+
+        expect(reserveTables, hasLength(1));
+
         final List<Map<String, Object?>> indexes = await migratedDatabase
             .rawQuery('''
           SELECT name
@@ -123,16 +136,17 @@ void main() {
               'idx_expenses_recurring_id',
               'idx_recurring_expenses_next_date',
               'idx_recurring_expenses_active',
-              'idx_recurring_expenses_category'
+              'idx_recurring_expenses_category',
+              'idx_reserve_transactions_created_at'
             )
           ''');
 
-        expect(indexes, hasLength(6));
+        expect(indexes, hasLength(7));
       },
     );
 
     test(
-      'migra o banco da versão 2 para a versão 4 preservando despesas',
+      'migra o banco da versão 2 para a versão 5 preservando despesas',
       () async {
         final Database oldDatabase = await databaseFactoryFfi.openDatabase(
           databasePath,
@@ -176,7 +190,7 @@ void main() {
 
         final Database migratedDatabase = await AppDatabase.instance.database;
 
-        expect(await migratedDatabase.getVersion(), 4);
+        expect(await migratedDatabase.getVersion(), 5);
 
         final List<Map<String, Object?>> expenses = await migratedDatabase
             .query(AppDatabase.expensesTable);

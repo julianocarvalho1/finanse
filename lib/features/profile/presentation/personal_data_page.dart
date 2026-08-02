@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:finanse/core/utils/expense_notifier.dart';
+
 class PersonalDataPage extends StatefulWidget {
   const PersonalDataPage({super.key});
 
@@ -112,6 +114,7 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
       final String oldPhotoPath = _profilePhotoPath;
 
       await preferences.setString('profilePhotoPath', copiedPhoto.path);
+      expenseNotifier.value++;
 
       if (oldPhotoPath.isNotEmpty && oldPhotoPath != copiedPhoto.path) {
         final File oldPhoto = File(oldPhotoPath);
@@ -153,6 +156,7 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
 
     await preferences.remove('profilePhotoPath');
+    expenseNotifier.value++;
 
     if (currentPhotoPath.isNotEmpty) {
       final File currentPhoto = File(currentPhotoPath);
@@ -234,6 +238,7 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
           await SharedPreferences.getInstance();
 
       await preferences.setString('userName', name);
+      expenseNotifier.value++;
 
       HapticFeedback.mediumImpact();
 

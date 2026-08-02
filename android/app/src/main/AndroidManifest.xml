@@ -6,9 +6,6 @@
     <!-- Permite que os lembretes utilizem vibração. -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
-    <!-- Biometria. -->
-    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
-
     <!-- Permite restaurar lembretes depois que o celular reiniciar. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 

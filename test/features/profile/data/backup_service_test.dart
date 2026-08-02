@@ -69,6 +69,19 @@ void main() {
       )
     ''');
 
+
+    await database.execute('''
+      CREATE TABLE ${AppDatabase.reserveTransactionsTable} (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL,
+        amount REAL NOT NULL,
+        previousBalance REAL NOT NULL,
+        balanceAfter REAL NOT NULL,
+        note TEXT,
+        createdAt TEXT NOT NULL
+      )
+    ''');
+
     backupService = BackupService(
       database: database,
       documentsDirectoryProvider: () async {
@@ -143,8 +156,8 @@ void main() {
         );
 
         expect(document['signature'], 'FINANSE_BACKUP');
-        expect(document['formatVersion'], 2);
-        expect(document['databaseVersion'], 4);
+        expect(document['formatVersion'], 3);
+        expect(document['databaseVersion'], 5);
 
         expect(
           DateTime.parse(document['createdAt'] as String),
@@ -157,6 +170,7 @@ void main() {
 
         expect(integrity['expenseCount'], 1);
         expect(integrity['recurringExpenseCount'], 1);
+        expect(integrity['reserveTransactionCount'], 0);
         expect(
           integrity['checksum'],
           isA<String>().having(
@@ -174,6 +188,8 @@ void main() {
 
         final List<dynamic> recurringExpenses =
             payload['recurringExpenses'] as List<dynamic>;
+        final List<dynamic> reserveTransactions =
+            payload['reserveTransactions'] as List<dynamic>;
 
         final Map<String, dynamic> preferences = Map<String, dynamic>.from(
           payload['preferences'] as Map,
@@ -181,6 +197,7 @@ void main() {
 
         expect(expenses, hasLength(1));
         expect(recurringExpenses, hasLength(1));
+        expect(reserveTransactions, isEmpty);
 
         expect((expenses.first as Map)['id'], 'expense-backup-1');
 
@@ -322,7 +339,6 @@ void main() {
 
       expect(preferences.getString('themeMode'), 'dark');
 
-      // A biometria pertence ao aparelho atual e não é
       // substituída pelos dados do backup.
       expect(preferences.getBool('useBiometrics'), isFalse);
 

@@ -674,7 +674,7 @@ class _BackupPageState extends State<BackupPage> {
                   Expanded(
                     child: Text(
                       'A restauração substitui os dados atuais. '
-                      'A biometria deste aparelho não será alterada.',
+                          'As configurações deste aparelho não serão alteradas.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: textSecondary,
                         height: 1.4,

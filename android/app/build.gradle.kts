@@ -32,9 +32,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.julianoapps.finanse"
+        applicationId = "com.finanse.finanse"
 
-        // O local_auth 3 exige Android SDK 24 ou superior.
         minSdk = 24
 
         targetSdk = flutter.targetSdkVersion

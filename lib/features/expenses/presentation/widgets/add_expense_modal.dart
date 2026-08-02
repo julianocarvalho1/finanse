@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/category_style.dart';
+import '../../../../core/utils/currency_input_formatter.dart';
 import '../../../../core/utils/expense_notifier.dart';
 import '../../data/expense_repository.dart';
 import '../../domain/expense.dart';
@@ -56,10 +57,11 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
 
   final ExpenseRepository _repository = ExpenseRepository();
 
+  final TextEditingController _amountController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
-
   final TextEditingController _notesController = TextEditingController();
 
+  final FocusNode _amountFocusNode = FocusNode();
   final FocusNode _descriptionFocusNode = FocusNode();
 
   late final NumberFormat _currencyFormatter;
@@ -97,14 +99,25 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
     );
 
     _categories = List<String>.from(_defaultCategories);
+    _amountController.addListener(_handleAmountChanged);
 
     final Expense? expense = _originalExpense;
 
     if (expense == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _amountFocusNode.requestFocus();
+        }
+      });
       return;
     }
 
     _amountInCents = (expense.amount * 100).round();
+    _amountController.text = NumberFormat.currency(
+      locale: 'pt_BR',
+      symbol: '',
+      decimalDigits: 2,
+    ).format(expense.amount).trim();
     _selectedCategory = expense.categoryName;
     _selectedDateTime = expense.date;
 
@@ -117,73 +130,45 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
     }
 
     _showDetails = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _amountFocusNode.requestFocus();
+        _amountController.selection = TextSelection.collapsed(
+          offset: _amountController.text.length,
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
+    _amountController.removeListener(_handleAmountChanged);
+    _amountController.dispose();
     _descriptionController.dispose();
     _notesController.dispose();
+    _amountFocusNode.dispose();
     _descriptionFocusNode.dispose();
     super.dispose();
   }
 
-  void _onNumberPressed(String value) {
-    if (_isSaving) {
+  void _handleAmountChanged() {
+    final String digitsOnly = _amountController.text.replaceAll(
+      RegExp(r'[^0-9]'),
+      '',
+    );
+
+    final int parsedAmount = int.tryParse(digitsOnly) ?? 0;
+    final int safeAmount = parsedAmount > _maximumAmountInCents
+        ? _maximumAmountInCents
+        : parsedAmount;
+
+    if (safeAmount == _amountInCents || !mounted) {
       return;
     }
 
-    HapticFeedback.selectionClick();
-
     setState(() {
-      if (value == '00') {
-        if (_amountInCents == 0) {
-          return;
-        }
-
-        final int newValue = _amountInCents * 100;
-
-        if (newValue <= _maximumAmountInCents) {
-          _amountInCents = newValue;
-        }
-
-        return;
-      }
-
-      final int? digit = int.tryParse(value);
-
-      if (digit == null) {
-        return;
-      }
-
-      final int newValue = (_amountInCents * 10) + digit;
-
-      if (newValue <= _maximumAmountInCents) {
-        _amountInCents = newValue;
-      }
-    });
-  }
-
-  void _onBackspacePressed() {
-    if (_isSaving) {
-      return;
-    }
-
-    HapticFeedback.selectionClick();
-
-    setState(() {
-      _amountInCents ~/= 10;
-    });
-  }
-
-  void _clearAmount() {
-    if (_isSaving || _amountInCents == 0) {
-      return;
-    }
-
-    HapticFeedback.mediumImpact();
-
-    setState(() {
-      _amountInCents = 0;
+      _amountInCents = safeAmount;
     });
   }
 
@@ -535,286 +520,227 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
       clipBehavior: Clip.antiAlias,
       child: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xl,
-            AppSpacing.sm,
-            AppSpacing.xl,
-            AppSpacing.xl,
-          ),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Center(
-                child: Container(
-                  width: 42,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: borderColor,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl,
+                  AppSpacing.sm,
+                  AppSpacing.xl,
+                  AppSpacing.lg,
                 ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      _isEditing ? 'Editar gasto' : 'Novo gasto',
-                      style: theme.textTheme.titleLarge,
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: _isSaving ? null : _showDetailsWithoutFocus,
-                    icon: Icon(
-                      Icons.schedule_rounded,
-                      size: 17,
-                      color: primaryColor,
-                    ),
-                    label: Text(
-                      '${_formattedDate()}, ${_formattedTime()}',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: primaryColor,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppSpacing.md,
-                  horizontal: AppSpacing.lg,
-                ),
-                decoration: BoxDecoration(
-                  color: secondarySurface,
-                  borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
-                  border: Border.all(
-                    color: _amountInCents > 0
-                        ? primaryColor.withValues(alpha: 0.45)
-                        : borderColor,
-                    width: _amountInCents > 0 ? 1.5 : 1,
-                  ),
-                ),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(
-                      'Valor',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: textMuted,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xxs),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        _currencyFormatter.format(_amount),
-                        maxLines: 1,
-                        style: theme.textTheme.displaySmall?.copyWith(
-                          color: textPrimary,
+                    Center(
+                      child: Container(
+                        width: 42,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: borderColor,
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              Text(
-                'Categoria',
-                style: theme.textTheme.titleSmall?.copyWith(color: textPrimary),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              SizedBox(
-                height: 94,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _categories.length,
-                  separatorBuilder: (_, _) {
-                    return const SizedBox(width: AppSpacing.sm);
-                  },
-                  itemBuilder: (BuildContext context, int index) {
-                    final String categoryName = _categories[index];
-
-                    final CategoryStyle categoryStyle = CategoryStyles.fromName(
-                      categoryName,
-                    );
-
-                    final bool isSelected = categoryName == _selectedCategory;
-
-                    return _CategoryButton(
-                      name: categoryName,
-                      style: categoryStyle,
-                      selected: isSelected,
-                      primaryColor: primaryColor,
-                      surfaceColor: secondarySurface,
-                      borderColor: borderColor,
-                      textColor: textSecondary,
-                      onTap: () {
-                        _selectCategory(categoryName);
-                      },
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              if (!_showDetails)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: _isSaving
-                        ? null
-                        : _showDetailsAndFocusDescription,
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Adicionar detalhes'),
-                  ),
-                )
-              else
-                _buildDetailsSection(
-                  theme: theme,
-                  primaryColor: primaryColor,
-                  secondarySurface: secondarySurface,
-                  borderColor: borderColor,
-                  textPrimary: textPrimary,
-                  textSecondary: textSecondary,
-                  textMuted: textMuted,
-                ),
-              const SizedBox(height: AppSpacing.lg),
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: secondarySurface,
-                  borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Column(
-                  children: <Widget>[
-                    _buildKeypadRow(
-                      <String>['1', '2', '3'],
-                      textPrimary,
-                      surfaceColor,
-                      borderColor,
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    _buildKeypadRow(
-                      <String>['4', '5', '6'],
-                      textPrimary,
-                      surfaceColor,
-                      borderColor,
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    _buildKeypadRow(
-                      <String>['7', '8', '9'],
-                      textPrimary,
-                      surfaceColor,
-                      borderColor,
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
+                    const SizedBox(height: AppSpacing.md),
                     Row(
                       children: <Widget>[
                         Expanded(
-                          child: _buildNumberButton(
-                            value: '00',
-                            textColor: textPrimary,
-                            surfaceColor: surfaceColor,
-                            borderColor: borderColor,
+                          child: Text(
+                            _isEditing ? 'Editar gasto' : 'Novo gasto',
+                            style: theme.textTheme.titleLarge,
                           ),
                         ),
-                        const SizedBox(width: AppSpacing.xs),
-                        Expanded(
-                          child: _buildNumberButton(
-                            value: '0',
-                            textColor: textPrimary,
-                            surfaceColor: surfaceColor,
-                            borderColor: borderColor,
+                        TextButton.icon(
+                          onPressed: _isSaving
+                              ? null
+                              : _showDetailsWithoutFocus,
+                          icon: Icon(
+                            Icons.schedule_rounded,
+                            size: 17,
+                            color: primaryColor,
                           ),
-                        ),
-                        const SizedBox(width: AppSpacing.xs),
-                        Expanded(
-                          child: Semantics(
-                            button: true,
-                            label: 'Apagar número',
-                            hint: 'Mantenha pressionado para limpar o valor',
-                            child: Material(
-                              color: surfaceColor,
-                              borderRadius: BorderRadius.circular(
-                                AppSpacing.inputRadius,
-                              ),
-                              child: InkWell(
-                                onTap: _onBackspacePressed,
-                                onLongPress: _clearAmount,
-                                borderRadius: BorderRadius.circular(
-                                  AppSpacing.inputRadius,
-                                ),
-                                child: Container(
-                                  height: 54,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(
-                                      AppSpacing.inputRadius,
-                                    ),
-                                    border: Border.all(color: borderColor),
-                                  ),
-                                  child: Icon(
-                                    Icons.backspace_rounded,
-                                    color: textPrimary,
-                                    size: 21,
-                                  ),
-                                ),
-                              ),
+                          label: Text(
+                            '${_formattedDate()}, ${_formattedTime()}',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: primaryColor,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: AppSpacing.md),
+                    TextFormField(
+                      controller: _amountController,
+                      focusNode: _amountFocusNode,
+                      autofocus: true,
+                      enabled: !_isSaving,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      textInputAction: TextInputAction.done,
+                      inputFormatters: <TextInputFormatter>[
+                        CurrencyInputFormatter(
+                          maximumValueInCents: _maximumAmountInCents,
+                        ),
+                      ],
+                      style: theme.textTheme.displaySmall?.copyWith(
+                        color: textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Valor do gasto',
+                        hintText: '0,00',
+                        prefixText: 'R\$ ',
+                        filled: true,
+                        fillColor: secondarySurface,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppSpacing.inputRadius,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppSpacing.inputRadius,
+                          ),
+                          borderSide: BorderSide(
+                            color: _amountInCents > 0
+                                ? primaryColor.withValues(alpha: 0.45)
+                                : borderColor,
+                            width: _amountInCents > 0 ? 1.5 : 1,
+                          ),
+                        ),
+                      ),
+                      onFieldSubmitted: (_) {
+                        if (_canSave) {
+                          _saveExpense();
+                        }
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    Text(
+                      'Categoria',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    SizedBox(
+                      height: 94,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _categories.length,
+                        separatorBuilder: (_, _) {
+                          return const SizedBox(width: AppSpacing.sm);
+                        },
+                        itemBuilder: (BuildContext context, int index) {
+                          final String categoryName = _categories[index];
+                          final CategoryStyle categoryStyle =
+                              CategoryStyles.fromName(categoryName);
+                          final bool isSelected =
+                              categoryName == _selectedCategory;
+
+                          return _CategoryButton(
+                            name: categoryName,
+                            style: categoryStyle,
+                            selected: isSelected,
+                            primaryColor: primaryColor,
+                            surfaceColor: secondarySurface,
+                            borderColor: borderColor,
+                            textColor: textSecondary,
+                            onTap: () {
+                              _selectCategory(categoryName);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    if (!_showDetails)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: _isSaving
+                              ? null
+                              : _showDetailsAndFocusDescription,
+                          icon: const Icon(Icons.add_rounded),
+                          label: const Text('Adicionar detalhes'),
+                        ),
+                      )
+                    else
+                      _buildDetailsSection(
+                        theme: theme,
+                        primaryColor: primaryColor,
+                        secondarySurface: secondarySurface,
+                        borderColor: borderColor,
+                        textPrimary: textPrimary,
+                        textSecondary: textSecondary,
+                        textMuted: textMuted,
+                      ),
                   ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.lg),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _canSave ? _saveExpense : null,
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 160),
-                    child: _isSaving
-                        ? SizedBox(
-                            key: const ValueKey<String>('loading'),
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: theme.colorScheme.onPrimary,
-                            ),
-                          )
-                        : Text(
-                            key: const ValueKey<String>('label'),
-                            _isEditing ? 'Salvar alterações' : 'Salvar gasto',
-                          ),
-                  ),
-                ),
+            ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                AppSpacing.md,
+                AppSpacing.xl,
+                AppSpacing.lg,
               ),
-              if (_amountInCents == 0) ...<Widget>[
-                const SizedBox(height: AppSpacing.xs),
-                Center(
-                  child: Text(
-                    'Informe um valor maior que R\$ 0,00.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: textMuted,
+              decoration: BoxDecoration(
+                color: surfaceColor,
+                border: Border(top: BorderSide(color: borderColor)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _canSave ? _saveExpense : null,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 160),
+                        child: _isSaving
+                            ? SizedBox(
+                                key: const ValueKey<String>('loading'),
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  color: theme.colorScheme.onPrimary,
+                                ),
+                              )
+                            : Text(
+                                key: const ValueKey<String>('label'),
+                                _isEditing
+                                    ? 'Salvar alterações'
+                                    : 'Salvar gasto',
+                              ),
+                      ),
                     ),
                   ),
-                ),
-              ],
-              if (!isDark) const SizedBox(height: AppSpacing.xxs),
-            ],
-          ),
+                  if (_amountInCents == 0) ...<Widget>[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Informe um valor maior que R\$ 0,00.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: textMuted,
+                      ),
+                    ),
+                  ],
+                  if (!isDark) const SizedBox(height: AppSpacing.xxs),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -918,66 +844,6 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
             style: theme.textTheme.bodySmall?.copyWith(color: textMuted),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildKeypadRow(
-    List<String> values,
-    Color textColor,
-    Color surfaceColor,
-    Color borderColor,
-  ) {
-    return Row(
-      children: <Widget>[
-        for (int index = 0; index < values.length; index++) ...<Widget>[
-          if (index > 0) const SizedBox(width: AppSpacing.xs),
-          Expanded(
-            child: _buildNumberButton(
-              value: values[index],
-              textColor: textColor,
-              surfaceColor: surfaceColor,
-              borderColor: borderColor,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildNumberButton({
-    required String value,
-    required Color textColor,
-    required Color surfaceColor,
-    required Color borderColor,
-  }) {
-    return Semantics(
-      button: true,
-      label: 'Número $value',
-      child: Material(
-        color: surfaceColor,
-        borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
-        child: InkWell(
-          onTap: () {
-            _onNumberPressed(value);
-          },
-          borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
-          child: Container(
-            height: 54,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
-              border: Border.all(color: borderColor),
-            ),
-            child: Text(
-              value,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: textColor,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

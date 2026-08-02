@@ -11,10 +11,11 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._init();
 
   static const String _databaseName = 'finanse.db';
-  static const int _databaseVersion = 4;
+  static const int _databaseVersion = 5;
 
   static const String expensesTable = 'expenses';
   static const String recurringExpensesTable = 'recurring_expenses';
+  static const String reserveTransactionsTable = 'reserve_transactions';
 
   static Database? _database;
 
@@ -50,6 +51,7 @@ class AppDatabase {
   Future<void> _createDatabase(Database db, int version) async {
     await _createExpensesTable(db);
     await _createRecurringExpensesTable(db);
+    await _createReserveTransactionsTable(db);
     await _createIndexes(db);
   }
 
@@ -105,6 +107,10 @@ class AppDatabase {
         column: 'undoPreviousRegisteredCount',
         definition: 'INTEGER',
       );
+    }
+
+    if (oldVersion < 5) {
+      await _createReserveTransactionsTable(db);
     }
 
     await _createIndexes(db);
@@ -181,6 +187,23 @@ createdAt TEXT NOT NULL,
     ''');
   }
 
+
+  Future<void> _createReserveTransactionsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $reserveTransactionsTable (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL CHECK(
+          type IN ('add', 'withdraw', 'adjust')
+        ),
+        amount REAL NOT NULL CHECK(amount >= 0),
+        previousBalance REAL NOT NULL CHECK(previousBalance >= 0),
+        balanceAfter REAL NOT NULL CHECK(balanceAfter >= 0),
+        note TEXT,
+        createdAt TEXT NOT NULL
+      )
+    ''');
+  }
+
   Future<void> _createIndexes(Database db) async {
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_expenses_date
@@ -210,6 +233,11 @@ createdAt TEXT NOT NULL,
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_recurring_expenses_category
       ON $recurringExpensesTable(categoryName)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_reserve_transactions_created_at
+      ON $reserveTransactionsTable(createdAt)
     ''');
   }
 

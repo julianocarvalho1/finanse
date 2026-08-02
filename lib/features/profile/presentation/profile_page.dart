@@ -8,17 +8,17 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../../core/notifications/notification_service.dart';
-import '../../../../core/security/biometric_service.dart';
-import '../../../../core/security/pin_security_service.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/utils/expense_notifier.dart';
-import '../../../../core/utils/theme_notifier.dart';
-import '../../recurring_expenses/data/recurring_notification_scheduler.dart';
-import '../../recurring_expenses/presentation/recurring_expenses_page.dart';
-import 'backup_page.dart';
-import 'export_page.dart';
-import 'pin_settings_page.dart';
+import 'package:finanse/core/notifications/notification_service.dart';
+import 'package:finanse/core/security/pin_security_service.dart';
+import 'package:finanse/core/theme/app_colors.dart';
+import 'package:finanse/core/utils/expense_notifier.dart';
+import 'package:finanse/core/utils/theme_notifier.dart';
+import 'package:finanse/features/recurring_expenses/data/recurring_notification_scheduler.dart';
+import 'package:finanse/features/recurring_expenses/presentation/recurring_expenses_page.dart';
+import 'package:finanse/features/profile/presentation/backup_page.dart';
+import 'package:finanse/features/profile/presentation/export_page.dart';
+import 'package:finanse/features/profile/presentation/how_to_use_page.dart';
+import 'package:finanse/features/profile/presentation/pin_settings_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -30,16 +30,14 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  double _monthlyLimit = 2000.0;
+  double? _monthlyLimit;
   String _userName = '';
   String _profilePhotoPath = '';
 
-  bool _useBiometrics = false;
   bool _hasPin = false;
   bool _notificationsEnabled = false;
 
   bool _isUpdatingNotifications = false;
-  bool _isUpdatingBiometrics = false;
 
   @override
   void initState() {
@@ -90,10 +88,12 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     setState(() {
-      _monthlyLimit = preferences.getDouble('monthlyLimit') ?? 2000.0;
+      final double? savedLimit = preferences.getDouble('monthlyLimit');
+      _monthlyLimit = savedLimit != null && savedLimit > 0
+          ? savedLimit
+          : null;
       _userName = savedUserName;
       _profilePhotoPath = savedProfilePhotoPath;
-      _useBiometrics = preferences.getBool('useBiometrics') ?? false;
       _hasPin = hasPin;
       _notificationsEnabled = notificationsActuallyEnabled;
     });
@@ -221,123 +221,6 @@ class _ProfilePageState extends State<ProfilePage> {
     _showProfileMessage(
       pinEnabled ? 'PIN de acesso ativado.' : 'PIN de acesso removido.',
     );
-  }
-
-  Future<void> _changeBiometrics(bool newValue) async {
-    if (_isUpdatingBiometrics || newValue == _useBiometrics) {
-      return;
-    }
-
-    HapticFeedback.selectionClick();
-
-    setState(() {
-      _isUpdatingBiometrics = true;
-    });
-
-    try {
-      final SharedPreferences preferences =
-          await SharedPreferences.getInstance();
-
-      if (newValue) {
-        final BiometricAvailabilityResult availability = await BiometricService
-            .instance
-            .checkAvailability();
-
-        if (!availability.isAvailable) {
-          if (!mounted) {
-            return;
-          }
-
-          _showProfileMessage(availability.message, isError: true);
-
-          return;
-        }
-
-        final BiometricAuthenticationResult result = await BiometricService
-            .instance
-            .authenticate(
-              reason:
-                  'Confirme sua biometria para ativar a proteção do Finanse.',
-            );
-
-        if (!result.authenticated) {
-          if (!mounted) {
-            return;
-          }
-
-          if (!result.wasCanceled) {
-            _showProfileMessage(result.message, isError: true);
-          }
-
-          return;
-        }
-
-        await preferences.setBool('useBiometrics', true);
-
-        if (!mounted) {
-          return;
-        }
-
-        setState(() {
-          _useBiometrics = true;
-        });
-
-        _showProfileMessage('Bloqueio por biometria ativado.');
-
-        return;
-      }
-
-      final BiometricAuthenticationResult result = await BiometricService
-          .instance
-          .authenticate(
-            reason:
-                'Confirme sua biometria para desativar a proteção do Finanse.',
-          );
-
-      if (!result.authenticated) {
-        if (!mounted) {
-          return;
-        }
-
-        if (!result.wasCanceled) {
-          _showProfileMessage(result.message, isError: true);
-        }
-
-        return;
-      }
-
-      await preferences.setBool('useBiometrics', false);
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _useBiometrics = false;
-      });
-
-      _showProfileMessage('Bloqueio por biometria desativado.');
-    } catch (error, stackTrace) {
-      debugPrint(
-        'Erro ao alterar a biometria: '
-        '$error\n$stackTrace',
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      _showProfileMessage(
-        'Não foi possível alterar o bloqueio biométrico.',
-        isError: true,
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isUpdatingBiometrics = false;
-        });
-      }
-    }
   }
 
   Future<void> _sendNotificationTest() async {
@@ -527,10 +410,21 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _editMonthlyLimit() {
-    final TextEditingController limitController = TextEditingController(
-      text: _monthlyLimit.toStringAsFixed(0),
+  void _openHowToUse() {
+    HapticFeedback.selectionClick();
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) {
+          return const HowToUsePage();
+        },
+      ),
     );
+  }
+
+  Future<void> _editMonthlyLimit() async {
+    String inputValue = _monthlyLimit?.toStringAsFixed(0) ?? '';
+    String? errorMessage;
 
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -546,108 +440,166 @@ class _ProfilePageState extends State<ProfilePage> {
 
     final Color primaryColor = Theme.of(context).colorScheme.primary;
 
-    showDialog<void>(
+    final double? newValue = await showDialog<double>(
       context: context,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          backgroundColor: backgroundColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          title: Text(
-            'Limite Mensal',
-            style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                'Defina o valor máximo que você planeja gastar por mês.',
-                style: TextStyle(color: textSecondary, fontSize: 14),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: limitController,
-                keyboardType: TextInputType.number,
-                inputFormatters: <TextInputFormatter>[
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: textPrimary,
-                ),
-                decoration: InputDecoration(
-                  prefixText: 'R\$ ',
-                  prefixStyle: TextStyle(
-                    fontSize: 24,
-                    color: isDark
-                        ? AppColors.darkTextMuted
-                        : const Color(0xFF8A959D),
-                  ),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: primaryColor),
-                  ),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: primaryColor, width: 2),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-              child: Text('Cancelar', style: TextStyle(color: textSecondary)),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final double? newValue = double.tryParse(limitController.text);
+        return StatefulBuilder(
+          builder: (
+            BuildContext context,
+            StateSetter setDialogState,
+          ) {
+            void submitValue() {
+              String normalizedValue = inputValue.trim().replaceAll(' ', '');
 
-                if (newValue == null || newValue <= 0) {
-                  return;
-                }
+              if (normalizedValue.contains(',')) {
+                normalizedValue = normalizedValue
+                    .replaceAll('.', '')
+                    .replaceAll(',', '.');
+              } else if ('.'.allMatches(normalizedValue).length > 1) {
+                normalizedValue = normalizedValue.replaceAll('.', '');
+              }
 
-                final SharedPreferences preferences =
-                    await SharedPreferences.getInstance();
+              final double? value = double.tryParse(normalizedValue);
 
-                await preferences.setDouble('monthlyLimit', newValue);
-
-                if (!mounted) {
-                  return;
-                }
-
-                setState(() {
-                  _monthlyLimit = newValue;
+              if (value == null || value <= 0) {
+                setDialogState(() {
+                  errorMessage = 'Digite um valor maior que zero.';
                 });
+                return;
+              }
 
-                expenseNotifier.value++;
+              Navigator.of(dialogContext).pop(value);
+            }
 
-                if (dialogContext.mounted) {
-                  Navigator.of(dialogContext).pop();
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+            return AlertDialog(
+              backgroundColor: backgroundColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
               ),
-              child: const Text(
-                'Salvar',
+              title: Text(
+                'Limite Mensal',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: textPrimary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-          ],
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Defina o valor máximo que você planeja gastar por mês.',
+                    style: TextStyle(color: textSecondary, fontSize: 14),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    initialValue: inputValue,
+                    autofocus: true,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]')),
+                    ],
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      prefixText: 'R\$ ',
+                      errorText: errorMessage,
+                      prefixStyle: TextStyle(
+                        fontSize: 24,
+                        color: isDark
+                            ? AppColors.darkTextMuted
+                            : const Color(0xFF8A959D),
+                      ),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: primaryColor),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: primaryColor,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    onChanged: (String value) {
+                      inputValue = value;
+
+                      if (errorMessage != null) {
+                        setDialogState(() {
+                          errorMessage = null;
+                        });
+                      }
+                    },
+                    onFieldSubmitted: (_) {
+                      submitValue();
+                    },
+                  ),
+                ],
+              ),
+              actions: <Widget>[
+                if (_monthlyLimit != null)
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop(0);
+                    },
+                    child: const Text('Remover limite'),
+                  ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: Text(
+                    'Cancelar',
+                    style: TextStyle(color: textSecondary),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: submitValue,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Salvar',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
-    ).whenComplete(limitController.dispose);
+    );
+
+    if (newValue == null) {
+      return;
+    }
+
+    final SharedPreferences preferences =
+        await SharedPreferences.getInstance();
+
+    if (newValue == 0) {
+      await preferences.remove('monthlyLimit');
+    } else {
+      await preferences.setDouble('monthlyLimit', newValue);
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _monthlyLimit = newValue == 0 ? null : newValue;
+    });
+
+    expenseNotifier.value++;
   }
 
   Widget _buildColorOption(Color color) {
@@ -1117,7 +1069,9 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildListTile(
               icon: Icons.track_changes_rounded,
               title: 'Limite Mensal',
-              subtitle: 'Atual: ${currencyFormatter.format(_monthlyLimit)}',
+              subtitle: _monthlyLimit == null
+                  ? 'Ainda não definido'
+                  : 'Atual: ${currencyFormatter.format(_monthlyLimit!)}',
               iconColor: primaryColor,
               onTap: _editMonthlyLimit,
             ),
@@ -1159,7 +1113,19 @@ class _ProfilePageState extends State<ProfilePage> {
                 },
               ),
             ],
-            Divider(height: 1, color: dividerColor, indent: 20, endIndent: 20),
+          ], isDark),
+          _buildSectionHeader('Ajuda'),
+          _buildSettingsGroup(<Widget>[
+            _buildListTile(
+              icon: Icons.help_outline_rounded,
+              title: 'Como usar o Finanse',
+              subtitle: 'Guia rápido, dicas e passo a passo',
+              iconColor: primaryColor,
+              onTap: _openHowToUse,
+            ),
+          ], isDark),
+          _buildSectionHeader('Segurança'),
+          _buildSettingsGroup(<Widget>[
             _buildListTile(
               icon: Icons.password_rounded,
               title: 'PIN de acesso',
@@ -1168,24 +1134,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   : 'Criar um PIN de 4 a 6 números',
               iconColor: primaryColor,
               onTap: _openPinSettings,
-            ),
-          ], isDark),
-          _buildSectionHeader('Segurança e Biometria'),
-          _buildSettingsGroup(<Widget>[
-            _buildSwitchTile(
-              icon: Icons.fingerprint_rounded,
-              title: 'Bloqueio por Biometria',
-              subtitle: _isUpdatingBiometrics
-                  ? 'Verificando sua identidade...'
-                  : _useBiometrics
-                  ? 'Proteção ativa ao abrir o aplicativo'
-                  : 'Exigir digital ou reconhecimento facial',
-              value: _useBiometrics,
-              onChanged: (bool newValue) {
-                if (!_isUpdatingBiometrics) {
-                  _changeBiometrics(newValue);
-                }
-              },
             ),
           ], isDark),
           _buildSectionHeader('Dados e Backup'),
@@ -1207,7 +1155,7 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: 32),
           Center(
             child: Text(
-              'Finanse App v1.0.0',
+              'Finanse App v1.0.1',
               style: TextStyle(color: textMuted, fontSize: 12),
             ),
           ),

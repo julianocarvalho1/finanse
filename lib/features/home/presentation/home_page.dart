@@ -3,13 +3,18 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/utils/category_style.dart';
-import '../../../../core/utils/expense_notifier.dart';
-import '../../expenses/data/expense_repository.dart';
-import '../../expenses/domain/expense.dart';
-import '../../expenses/presentation/widgets/add_expense_modal.dart';
+import 'package:finanse/core/theme/app_colors.dart';
+import 'package:finanse/core/theme/app_spacing.dart';
+import 'package:finanse/core/utils/category_style.dart';
+import 'package:finanse/core/utils/expense_notifier.dart';
+import 'package:finanse/features/expenses/data/expense_repository.dart';
+import 'package:finanse/features/expenses/domain/expense.dart';
+import 'package:finanse/features/expenses/presentation/widgets/add_expense_modal.dart';
+import 'package:finanse/features/reserve/data/reserve_repository.dart';
+import 'package:finanse/features/reserve/domain/reserve_transaction.dart';
+import 'package:finanse/features/reserve/presentation/reserve_history_page.dart';
+
+enum _ReserveAction { add, withdraw, adjust, history }
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -22,6 +27,7 @@ class _HomePageState extends State<HomePage> {
   static const List<String> _periods = <String>['Hoje', 'Semana', 'Mês'];
 
   final ExpenseRepository _repository = ExpenseRepository();
+  final ReserveRepository _reserveRepository = ReserveRepository();
 
   late final NumberFormat _currencyFormatter;
 
@@ -31,7 +37,10 @@ class _HomePageState extends State<HomePage> {
   double _periodTotal = 0;
   double _previousPeriodTotal = 0;
   double _monthTotal = 0;
-  double _monthlyLimit = 2000;
+  double? _monthlyLimit;
+  double _savingsReserve = 0;
+
+  bool _showSavingsReserve = false;
 
   int _periodCount = 0;
   int _loadRequestId = 0;
@@ -79,7 +88,13 @@ class _HomePageState extends State<HomePage> {
       final SharedPreferences preferences =
           await SharedPreferences.getInstance();
 
-      final double savedLimit = preferences.getDouble('monthlyLimit') ?? 2000;
+      final double? savedLimit = preferences.getDouble('monthlyLimit');
+
+      final double legacyReserve =
+          preferences.getDouble('savingsReserve') ?? 0;
+
+      await _reserveRepository.migrateLegacyBalance(legacyReserve);
+      final double savedReserve = await _reserveRepository.getCurrentBalance();
 
       final String savedUserName =
           preferences.getString('userName')?.trim() ?? '';
@@ -113,7 +128,10 @@ class _HomePageState extends State<HomePage> {
       }
 
       setState(() {
-        _monthlyLimit = savedLimit > 0 ? savedLimit : 2000;
+        _monthlyLimit = savedLimit != null && savedLimit > 0
+            ? savedLimit
+            : null;
+        _savingsReserve = savedReserve >= 0 ? savedReserve : 0;
         _userName = savedUserName;
 
         _periodTotal = periodTotal;
@@ -557,6 +575,481 @@ class _HomePageState extends State<HomePage> {
     return DateFormat("dd 'de' MMMM 'de' yyyy, HH:mm", 'pt_BR').format(date);
   }
 
+  double? _parseCurrencyInput(String input) {
+    String normalized = input
+        .trim()
+        .replaceAll('R\$', '')
+        .replaceAll(' ', '');
+
+    if (normalized.isEmpty) {
+      return null;
+    }
+
+    if (normalized.contains(',')) {
+      normalized = normalized.replaceAll('.', '').replaceAll(',', '.');
+    } else if ('.'.allMatches(normalized).length > 1) {
+      normalized = normalized.replaceAll('.', '');
+    }
+
+    return double.tryParse(normalized);
+  }
+
+  Future<double?> _requestReserveValue({
+    required String title,
+    required String description,
+    required String buttonLabel,
+    required bool allowZero,
+    double? initialValue,
+  }) {
+    String inputValue = initialValue == null
+        ? ''
+        : initialValue.toStringAsFixed(2).replaceAll('.', ',');
+
+    String? errorMessage;
+
+    return showDialog<double>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        final ThemeData theme = Theme.of(dialogContext);
+
+        return StatefulBuilder(
+          builder: (
+            BuildContext context,
+            StateSetter setDialogState,
+          ) {
+            void submitValue() {
+              final double? value = _parseCurrencyInput(inputValue);
+
+              final bool isInvalid =
+                  value == null || (allowZero ? value < 0 : value <= 0);
+
+              if (isInvalid) {
+                setDialogState(() {
+                  errorMessage = allowZero
+                      ? 'Digite um valor válido.'
+                      : 'Digite um valor maior que zero.';
+                });
+                return;
+              }
+
+              Navigator.of(dialogContext).pop(value);
+            }
+
+            return AlertDialog(
+              title: Text(title),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(description, style: theme.textTheme.bodyMedium),
+                  const SizedBox(height: AppSpacing.lg),
+                  TextFormField(
+                    initialValue: inputValue,
+                    autofocus: true,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]')),
+                    ],
+                    decoration: InputDecoration(
+                      prefixText: 'R\$ ',
+                      hintText: '0,00',
+                      errorText: errorMessage,
+                    ),
+                    onChanged: (String value) {
+                      inputValue = value;
+
+                      if (errorMessage != null) {
+                        setDialogState(() {
+                          errorMessage = null;
+                        });
+                      }
+                    },
+                    onFieldSubmitted: (_) {
+                      submitValue();
+                    },
+                  ),
+                ],
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: submitValue,
+                  child: Text(buttonLabel),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _defineMonthlyLimit() async {
+    final double? newLimit = await _requestReserveValue(
+      title: _monthlyLimit == null
+          ? 'Definir limite mensal'
+          : 'Alterar limite mensal',
+      description:
+          'Informe o valor máximo que você planeja gastar por mês.',
+      buttonLabel: 'Salvar limite',
+      allowZero: false,
+      initialValue: _monthlyLimit,
+    );
+
+    if (newLimit == null) {
+      return;
+    }
+
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    await preferences.setDouble('monthlyLimit', newLimit);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _monthlyLimit = newLimit;
+    });
+
+    expenseNotifier.value++;
+  }
+
+  Future<void> _persistReserveBalance(double value) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    await preferences.setDouble('savingsReserve', value);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _savingsReserve = value;
+    });
+  }
+
+  Future<void> _addToReserve() async {
+    final double? amount = await _requestReserveValue(
+      title: 'Adicionar à reserva',
+      description:
+          'Informe quanto você guardou. O valor será somado ao total atual.',
+      buttonLabel: 'Adicionar',
+      allowZero: false,
+    );
+
+    if (amount == null) {
+      return;
+    }
+
+    late final ReserveTransaction transaction;
+
+    try {
+      transaction = await _reserveRepository.addAmount(amount);
+      await _persistReserveBalance(transaction.balanceAfter);
+    } catch (_) {
+      if (mounted) {
+        _showErrorMessage('Não foi possível adicionar o valor à reserva.');
+      }
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${_currencyFormatter.format(amount)} adicionado à sua reserva.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _withdrawFromReserve() async {
+    final double? amount = await _requestReserveValue(
+      title: 'Retirar da reserva',
+      description:
+          'Informe quanto foi retirado. O valor não pode ser maior que o saldo atual.',
+      buttonLabel: 'Retirar',
+      allowZero: false,
+    );
+
+    if (amount == null) {
+      return;
+    }
+
+    if (amount > _savingsReserve) {
+      _showErrorMessage('O valor informado é maior que a sua reserva atual.');
+      return;
+    }
+
+    late final ReserveTransaction transaction;
+
+    try {
+      transaction = await _reserveRepository.withdrawAmount(amount);
+      await _persistReserveBalance(transaction.balanceAfter);
+    } catch (_) {
+      if (mounted) {
+        _showErrorMessage('Não foi possível registrar a retirada.');
+      }
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${_currencyFormatter.format(amount)} retirado da sua reserva.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _adjustReserve() async {
+    final double? newTotal = await _requestReserveValue(
+      title: 'Ajustar reserva',
+      description:
+          'Informe o valor total aproximado que você possui guardado agora.',
+      buttonLabel: 'Salvar',
+      allowZero: true,
+      initialValue: _savingsReserve,
+    );
+
+    if (newTotal == null || newTotal == _savingsReserve) {
+      return;
+    }
+
+    late final ReserveTransaction transaction;
+
+    try {
+      transaction = await _reserveRepository.adjustBalance(newTotal);
+      await _persistReserveBalance(transaction.balanceAfter);
+    } catch (_) {
+      if (mounted) {
+        _showErrorMessage('Não foi possível ajustar a reserva.');
+      }
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Valor da reserva atualizado.')),
+    );
+  }
+
+  Future<void> _openReserveHistory() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) {
+          return const ReserveHistoryPage();
+        },
+      ),
+    );
+
+    if (mounted) {
+      await _loadData(showLoading: false);
+    }
+  }
+
+  Future<void> _openReserveActions() async {
+    HapticFeedback.selectionClick();
+
+    final _ReserveAction? action = await showModalBottomSheet<_ReserveAction>(
+      context: context,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              0,
+              AppSpacing.lg,
+              AppSpacing.lg,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Minha reserva',
+                  style: Theme.of(sheetContext).textTheme.titleLarge,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Registre as movimentações sem misturar a reserva com os gastos mensais.',
+                  style: Theme.of(sheetContext).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.add_circle_outline_rounded),
+                  title: const Text('Adicionar valor'),
+                  subtitle: const Text('Somar um novo valor ao total guardado'),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop(_ReserveAction.add);
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.remove_circle_outline_rounded),
+                  title: const Text('Retirar valor'),
+                  subtitle: Text(
+                    _savingsReserve > 0
+                        ? 'Registrar uma retirada da reserva'
+                        : 'Não há saldo disponível para retirar',
+                  ),
+                  enabled: _savingsReserve > 0,
+                  onTap: _savingsReserve > 0
+                      ? () {
+                          Navigator.of(
+                            sheetContext,
+                          ).pop(_ReserveAction.withdraw);
+                        }
+                      : null,
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.tune_rounded),
+                  title: const Text('Ajustar total'),
+                  subtitle: const Text('Corrigir o valor atual da reserva'),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop(_ReserveAction.adjust);
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.history_rounded),
+                  title: const Text('Ver histórico'),
+                  subtitle: const Text('Consultar adições, retiradas e ajustes'),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop(_ReserveAction.history);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted || action == null) {
+      return;
+    }
+
+    switch (action) {
+      case _ReserveAction.add:
+        await _addToReserve();
+        break;
+      case _ReserveAction.withdraw:
+        await _withdrawFromReserve();
+        break;
+      case _ReserveAction.adjust:
+        await _adjustReserve();
+        break;
+      case _ReserveAction.history:
+        await _openReserveHistory();
+        break;
+    }
+  }
+
+  Widget _buildSavingsReserveCard(ThemeData theme) {
+    final String reserveText = _showSavingsReserve
+        ? _currencyFormatter.format(_savingsReserve)
+        : 'R\$ •••••';
+
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        onTap: _openReserveActions,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
+                ),
+                child: Icon(
+                  Icons.savings_outlined,
+                  color: theme.colorScheme.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Minha reserva',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: AppColors.textSecondary(context),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xxs),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 160),
+                      child: Text(
+                        reserveText,
+                        key: ValueKey<String>(reserveText),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: _showSavingsReserve
+                    ? 'Ocultar valor'
+                    : 'Mostrar valor',
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+
+                  setState(() {
+                    _showSavingsReserve = !_showSavingsReserve;
+                  });
+                },
+                icon: Icon(
+                  _showSavingsReserve
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textMuted(context),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -570,8 +1063,11 @@ class _HomePageState extends State<HomePage> {
       return _ErrorState(message: _errorMessage!, onRetry: _loadData);
     }
 
-    final double rawLimitProgress = _monthlyLimit > 0
-        ? _monthTotal / _monthlyLimit
+    final double? monthlyLimit = _monthlyLimit;
+    final bool hasMonthlyLimit = monthlyLimit != null && monthlyLimit > 0;
+
+    final double rawLimitProgress = hasMonthlyLimit
+        ? _monthTotal / monthlyLimit!
         : 0;
 
     final double indicatorProgress = rawLimitProgress.clamp(0.0, 1.0);
@@ -581,9 +1077,11 @@ class _HomePageState extends State<HomePage> {
       primaryColor,
     );
 
-    final double limitDifference = _monthlyLimit - _monthTotal;
+    final double limitDifference = hasMonthlyLimit
+        ? monthlyLimit! - _monthTotal
+        : 0;
 
-    final bool isOverLimit = limitDifference < 0;
+    final bool isOverLimit = hasMonthlyLimit && limitDifference < 0;
 
     final String limitMainText = isOverLimit
         ? '${_currencyFormatter.format(limitDifference.abs())} '
@@ -611,15 +1109,20 @@ class _HomePageState extends State<HomePage> {
           _buildPeriodSelector(theme),
           const SizedBox(height: AppSpacing.xl),
           _buildSummaryCard(theme),
+          const SizedBox(height: AppSpacing.md),
+          _buildSavingsReserveCard(theme),
           const SizedBox(height: AppSpacing.xxl),
-          _buildMonthlyLimit(
-            theme: theme,
-            mainText: limitMainText,
-            rawProgress: rawLimitProgress,
-            indicatorProgress: indicatorProgress,
-            status: limitStatus,
-            isOverLimit: isOverLimit,
-          ),
+          if (hasMonthlyLimit)
+            _buildMonthlyLimit(
+              theme: theme,
+              mainText: limitMainText,
+              rawProgress: rawLimitProgress,
+              indicatorProgress: indicatorProgress,
+              status: limitStatus,
+              isOverLimit: isOverLimit,
+            )
+          else
+            _buildMonthlyLimitNotDefined(theme),
           const SizedBox(height: AppSpacing.xxl),
           _buildRecentExpenses(theme),
         ],
@@ -808,6 +1311,54 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildMonthlyLimitNotDefined(ThemeData theme) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    'Limite mensal',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                Icon(
+                  Icons.track_changes_rounded,
+                  color: theme.colorScheme.primary,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Limite ainda não definido',
+              style: theme.textTheme.titleLarge,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Defina quanto você planeja gastar por mês para acompanhar o valor disponível.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary(context),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _defineMonthlyLimit,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Definir limite'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMonthlyLimit({
     required ThemeData theme,
     required String mainText,
@@ -832,7 +1383,11 @@ class _HomePageState extends State<HomePage> {
                     style: theme.textTheme.titleMedium,
                   ),
                 ),
-                Icon(status.icon, color: status.color),
+                IconButton(
+                  tooltip: 'Alterar limite',
+                  onPressed: _defineMonthlyLimit,
+                  icon: const Icon(Icons.edit_outlined),
+                ),
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -847,7 +1402,7 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: AppSpacing.xxs),
             Text(
               'de um limite de '
-              '${_currencyFormatter.format(_monthlyLimit)}',
+              '${_currencyFormatter.format(_monthlyLimit!)}',
               style: theme.textTheme.bodySmall,
             ),
             const SizedBox(height: AppSpacing.md),

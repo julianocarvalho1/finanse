@@ -131,11 +131,11 @@ class BackupService {
 
   static const String _signature = 'FINANSE_BACKUP';
 
-  static const int _backupFormatVersion = 2;
+  static const int _backupFormatVersion = 3;
 
-  static const Set<int> _supportedBackupFormatVersions = <int>{1, 2};
+  static const Set<int> _supportedBackupFormatVersions = <int>{1, 2, 3};
 
-  static const int _databaseVersion = 4;
+  static const int _databaseVersion = 5;
   static const int _maxProfilePhotoBytes = 8 * 1024 * 1024;
 
   static const Set<String> _supportedProfilePhotoExtensions = <String>{
@@ -179,6 +179,11 @@ class BackupService {
         orderBy: 'createdAt ASC',
       );
 
+      final List<Map<String, Object?>> reserveTransactions = await database.query(
+        AppDatabase.reserveTransactionsTable,
+        orderBy: 'createdAt ASC',
+      );
+
       final SharedPreferences preferences =
           await SharedPreferences.getInstance();
 
@@ -197,6 +202,11 @@ class BackupService {
               return Map<String, Object?>.from(row);
             })
             .toList(growable: false),
+        'reserveTransactions': reserveTransactions
+            .map<Map<String, Object?>>((Map<String, Object?> row) {
+              return Map<String, Object?>.from(row);
+            })
+            .toList(growable: false),
         'preferences': _encodePreferences(preferences),
         'profilePhoto': profilePhoto,
       };
@@ -210,11 +220,12 @@ class BackupService {
         'formatVersion': _backupFormatVersion,
         'databaseVersion': _databaseVersion,
         'createdAt': createdAt.toUtc().toIso8601String(),
-        'application': <String, dynamic>{'name': 'Finanse', 'version': '1.0.0'},
+        'application': <String, dynamic>{'name': 'Finanse', 'version': '1.0.1'},
         'integrity': <String, dynamic>{
           'checksum': checksum,
           'expenseCount': expenses.length,
           'recurringExpenseCount': recurringExpenses.length,
+          'reserveTransactionCount': reserveTransactions.length,
         },
         'payload': payload,
       };
@@ -399,6 +410,7 @@ class BackupService {
         await transaction.delete(AppDatabase.expensesTable);
 
         await transaction.delete(AppDatabase.recurringExpensesTable);
+        await transaction.delete(AppDatabase.reserveTransactionsTable);
 
         for (final Map<String, Object?> row in validated.recurringExpenses) {
           await transaction.insert(
@@ -411,6 +423,14 @@ class BackupService {
         for (final Map<String, Object?> row in validated.expenses) {
           await transaction.insert(
             AppDatabase.expensesTable,
+            row,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+
+        for (final Map<String, Object?> row in validated.reserveTransactions) {
+          await transaction.insert(
+            AppDatabase.reserveTransactionsTable,
             row,
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
@@ -863,6 +883,7 @@ class BackupService {
     final dynamic rawExpenses = payload['expenses'];
 
     final dynamic rawRecurringExpenses = payload['recurringExpenses'];
+    final dynamic rawReserveTransactions = payload['reserveTransactions'];
 
     final dynamic rawPreferences = payload['preferences'];
     final dynamic rawProfilePhoto = payload['profilePhoto'];
@@ -884,6 +905,23 @@ class BackupService {
           return _validateRecurringExpenseRow(row);
         })
         .toList(growable: false);
+
+    final List<Map<String, Object?>> reserveTransactions;
+    if (formatVersion >= 3) {
+      if (rawReserveTransactions is! List) {
+        throw const BackupException(
+          'O histórico da reserva está ausente no backup.',
+        );
+      }
+
+      reserveTransactions = rawReserveTransactions
+          .map<Map<String, Object?>>((dynamic row) {
+            return _validateReserveTransactionRow(row);
+          })
+          .toList(growable: false);
+    } else {
+      reserveTransactions = <Map<String, Object?>>[];
+    }
 
     final Map<String, dynamic> preferences = Map<String, dynamic>.from(
       rawPreferences,
@@ -908,6 +946,7 @@ class BackupService {
     final dynamic expectedExpenseCount = integrity['expenseCount'];
 
     final dynamic expectedRecurringCount = integrity['recurringExpenseCount'];
+    final dynamic expectedReserveCount = integrity['reserveTransactionCount'];
 
     if (expectedExpenseCount is! num ||
         expectedExpenseCount.toInt() != expenses.length) {
@@ -920,6 +959,14 @@ class BackupService {
         expectedRecurringCount.toInt() != recurringExpenses.length) {
       throw const BackupException(
         'A quantidade de despesas recorrentes do backup não confere.',
+      );
+    }
+
+    if (formatVersion >= 3 &&
+        (expectedReserveCount is! num ||
+            expectedReserveCount.toInt() != reserveTransactions.length)) {
+      throw const BackupException(
+        'A quantidade de movimentações da reserva não confere.',
       );
     }
 
@@ -953,6 +1000,7 @@ class BackupService {
       createdAt: createdAt.toLocal(),
       expenses: expenses,
       recurringExpenses: recurringExpenses,
+      reserveTransactions: reserveTransactions,
       preferences: preferences,
       profilePhoto: profilePhoto,
     );
@@ -1051,6 +1099,53 @@ class BackupService {
     };
   }
 
+  Map<String, Object?> _validateReserveTransactionRow(dynamic rawRow) {
+    if (rawRow is! Map) {
+      throw const BackupException(
+        'Uma movimentação da reserva possui formato inválido.',
+      );
+    }
+
+    final Map<String, dynamic> row = Map<String, dynamic>.from(rawRow);
+    final String type = _requiredString(
+      row,
+      'type',
+      'movimentação da reserva',
+    );
+
+    if (!<String>{'add', 'withdraw', 'adjust'}.contains(type)) {
+      throw const BackupException(
+        'Uma movimentação da reserva possui tipo inválido.',
+      );
+    }
+
+    return <String, Object?>{
+      'id': _requiredString(row, 'id', 'movimentação da reserva'),
+      'type': type,
+      'amount': _requiredNonNegativeDouble(
+        row,
+        'amount',
+        'movimentação da reserva',
+      ),
+      'previousBalance': _requiredNonNegativeDouble(
+        row,
+        'previousBalance',
+        'movimentação da reserva',
+      ),
+      'balanceAfter': _requiredNonNegativeDouble(
+        row,
+        'balanceAfter',
+        'movimentação da reserva',
+      ),
+      'note': _optionalString(row['note']),
+      'createdAt': _requiredDateString(
+        row,
+        'createdAt',
+        'movimentação da reserva',
+      ),
+    };
+  }
+
   String _requiredString(
     Map<String, dynamic> row,
     String key,
@@ -1079,6 +1174,22 @@ class BackupService {
       throw BackupException(
         'Uma $recordLabel possui o campo '
         '"$key" inválido.',
+      );
+    }
+
+    return value.toDouble();
+  }
+
+  double _requiredNonNegativeDouble(
+    Map<String, dynamic> row,
+    String key,
+    String recordLabel,
+  ) {
+    final dynamic value = row[key];
+
+    if (value is! num || !value.isFinite || value < 0) {
+      throw BackupException(
+        'Uma $recordLabel possui o campo "$key" inválido.',
       );
     }
 
@@ -1279,6 +1390,7 @@ class _ValidatedBackup {
     required this.createdAt,
     required this.expenses,
     required this.recurringExpenses,
+    required this.reserveTransactions,
     required this.preferences,
     required this.profilePhoto,
   });
@@ -1288,6 +1400,8 @@ class _ValidatedBackup {
   final List<Map<String, Object?>> expenses;
 
   final List<Map<String, Object?>> recurringExpenses;
+
+  final List<Map<String, Object?>> reserveTransactions;
 
   final Map<String, dynamic> preferences;
 
