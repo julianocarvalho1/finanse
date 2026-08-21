@@ -179,10 +179,11 @@ class BackupService {
         orderBy: 'createdAt ASC',
       );
 
-      final List<Map<String, Object?>> reserveTransactions = await database.query(
-        AppDatabase.reserveTransactionsTable,
-        orderBy: 'createdAt ASC',
-      );
+      final List<Map<String, Object?>> reserveTransactions = await database
+          .query(
+            AppDatabase.reserveTransactionsTable,
+            orderBy: 'createdAt ASC',
+          );
 
       final SharedPreferences preferences =
           await SharedPreferences.getInstance();
@@ -220,7 +221,7 @@ class BackupService {
         'formatVersion': _backupFormatVersion,
         'databaseVersion': _databaseVersion,
         'createdAt': createdAt.toUtc().toIso8601String(),
-        'application': <String, dynamic>{'name': 'Finanse', 'version': '1.0.1'},
+        'application': <String, dynamic>{'name': 'Finanse', 'version': '1.0.2'},
         'integrity': <String, dynamic>{
           'checksum': checksum,
           'expenseCount': expenses.length,
@@ -1107,11 +1108,7 @@ class BackupService {
     }
 
     final Map<String, dynamic> row = Map<String, dynamic>.from(rawRow);
-    final String type = _requiredString(
-      row,
-      'type',
-      'movimentação da reserva',
-    );
+    final String type = _requiredString(row, 'type', 'movimentação da reserva');
 
     if (!<String>{'add', 'withdraw', 'adjust'}.contains(type)) {
       throw const BackupException(
@@ -1188,9 +1185,7 @@ class BackupService {
     final dynamic value = row[key];
 
     if (value is! num || !value.isFinite || value < 0) {
-      throw BackupException(
-        'Uma $recordLabel possui o campo "$key" inválido.',
-      );
+      throw BackupException('Uma $recordLabel possui o campo "$key" inválido.');
     }
 
     return value.toDouble();

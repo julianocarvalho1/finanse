@@ -114,8 +114,7 @@ class _PinSettingsPageState extends State<PinSettingsPage> {
 
     try {
       if (_hasPin) {
-        final bool currentPinIsValid = await PinSecurityService.instance
-            .verifyPin(currentPin);
+        final bool currentPinIsValid = await _verifyCurrentPin(currentPin);
 
         if (!currentPinIsValid) {
           if (!mounted) {
@@ -126,7 +125,6 @@ class _PinSettingsPageState extends State<PinSettingsPage> {
             _isSavingPin = false;
           });
 
-          _showMessage('O PIN atual está incorreto.', isError: true);
           return;
         }
       }
@@ -178,8 +176,7 @@ class _PinSettingsPageState extends State<PinSettingsPage> {
     });
 
     try {
-      final bool currentPinIsValid = await PinSecurityService.instance
-          .verifyPin(currentPin);
+      final bool currentPinIsValid = await _verifyCurrentPin(currentPin);
 
       if (!currentPinIsValid) {
         if (!mounted) {
@@ -190,7 +187,6 @@ class _PinSettingsPageState extends State<PinSettingsPage> {
           _isRemovingPin = false;
         });
 
-        _showMessage('O PIN atual está incorreto.', isError: true);
         return;
       }
 
@@ -205,7 +201,7 @@ class _PinSettingsPageState extends State<PinSettingsPage> {
               return AlertDialog(
                 title: const Text('Remover PIN?'),
                 content: const Text(
-                  'O aplicativo deixará de aceitar o PIN como forma de desbloqueio.',
+                  'O aplicativo deixará de exigir o PIN para desbloquear seus dados.',
                 ),
                 actions: <Widget>[
                   TextButton(
@@ -261,6 +257,33 @@ class _PinSettingsPageState extends State<PinSettingsPage> {
 
       _showMessage('Não foi possível remover o PIN.', isError: true);
     }
+  }
+
+  Future<bool> _verifyCurrentPin(String pin) async {
+    final PinVerificationResult result = await PinSecurityService.instance
+        .verifyPinWithProtection(pin);
+
+    if (result.isValid) {
+      return true;
+    }
+
+    if (result.isLocked) {
+      final int seconds = (result.retryAfter.inMilliseconds / 1000).ceil();
+
+      _showMessage(
+        'Muitas tentativas incorretas. Aguarde $seconds segundos.',
+        isError: true,
+      );
+      return false;
+    }
+
+    final String attemptsMessage = result.attemptsRemaining == 1
+        ? 'Resta 1 tentativa.'
+        : 'Restam ${result.attemptsRemaining} tentativas.';
+
+    _showMessage('O PIN atual está incorreto. $attemptsMessage', isError: true);
+
+    return false;
   }
 
   Widget _buildPinField({
@@ -413,7 +436,9 @@ class _PinSettingsPageState extends State<PinSettingsPage> {
                   ],
                   const SizedBox(height: 20),
                   Text(
-                    'O PIN não será salvo em texto puro e não será incluído no backup.',
+                    'O PIN não é salvo em texto puro nem incluído no backup. '
+                    'Ele será solicitado ao abrir o Finanse e depois de 30 '
+                    'segundos fora do aplicativo.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodySmall,
                   ),

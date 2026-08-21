@@ -18,6 +18,35 @@ if (keystorePropertiesFile.exists()) {
     )
 }
 
+val releaseSigningKeys = listOf(
+    "keyAlias",
+    "keyPassword",
+    "storeFile",
+    "storePassword",
+)
+
+val releaseSigningConfigured =
+    keystorePropertiesFile.exists() &&
+        releaseSigningKeys.all { key ->
+            !keystoreProperties.getProperty(key).isNullOrBlank()
+        }
+
+if (keystorePropertiesFile.exists() && !releaseSigningConfigured) {
+    throw GradleException(
+        "android/key.properties existe, mas a configuração de assinatura está incompleta.",
+    )
+}
+
+val releaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+    taskName.contains("release", ignoreCase = true)
+}
+
+if (releaseTaskRequested && !releaseSigningConfigured) {
+    throw GradleException(
+        "A assinatura release não está configurada. Crie android/key.properties antes de gerar uma versão de produção.",
+    )
+}
+
 android {
     namespace = "com.finanse.finanse"
     compileSdk = flutter.compileSdkVersion
@@ -45,27 +74,29 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            keyAlias =
-                keystoreProperties["keyAlias"] as String
+        if (releaseSigningConfigured) {
+            create("release") {
+                keyAlias =
+                    keystoreProperties.getProperty("keyAlias")
 
-            keyPassword =
-                keystoreProperties["keyPassword"] as String
+                keyPassword =
+                    keystoreProperties.getProperty("keyPassword")
 
-            storeFile =
-                keystoreProperties["storeFile"]?.let {
-                    file(it)
-                }
+                storeFile =
+                    file(keystoreProperties.getProperty("storeFile"))
 
-            storePassword =
-                keystoreProperties["storePassword"] as String
+                storePassword =
+                    keystoreProperties.getProperty("storePassword")
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig =
-                signingConfigs.getByName("release")
+            if (releaseSigningConfigured) {
+                signingConfig =
+                    signingConfigs.getByName("release")
+            }
         }
     }
 }
@@ -86,4 +117,3 @@ dependencies {
 flutter {
     source = "../.."
 }
-

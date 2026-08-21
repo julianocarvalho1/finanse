@@ -90,8 +90,7 @@ class _HomePageState extends State<HomePage> {
 
       final double? savedLimit = preferences.getDouble('monthlyLimit');
 
-      final double legacyReserve =
-          preferences.getDouble('savingsReserve') ?? 0;
+      final double legacyReserve = preferences.getDouble('savingsReserve') ?? 0;
 
       await _reserveRepository.migrateLegacyBalance(legacyReserve);
       final double savedReserve = await _reserveRepository.getCurrentBalance();
@@ -576,10 +575,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   double? _parseCurrencyInput(String input) {
-    String normalized = input
-        .trim()
-        .replaceAll('R\$', '')
-        .replaceAll(' ', '');
+    String normalized = input.trim().replaceAll('R\$', '').replaceAll(' ', '');
 
     if (normalized.isEmpty) {
       return null;
@@ -613,10 +609,7 @@ class _HomePageState extends State<HomePage> {
         final ThemeData theme = Theme.of(dialogContext);
 
         return StatefulBuilder(
-          builder: (
-            BuildContext context,
-            StateSetter setDialogState,
-          ) {
+          builder: (BuildContext context, StateSetter setDialogState) {
             void submitValue() {
               final double? value = _parseCurrencyInput(inputValue);
 
@@ -679,10 +672,7 @@ class _HomePageState extends State<HomePage> {
                   },
                   child: const Text('Cancelar'),
                 ),
-                FilledButton(
-                  onPressed: submitValue,
-                  child: Text(buttonLabel),
-                ),
+                FilledButton(onPressed: submitValue, child: Text(buttonLabel)),
               ],
             );
           },
@@ -696,8 +686,7 @@ class _HomePageState extends State<HomePage> {
       title: _monthlyLimit == null
           ? 'Definir limite mensal'
           : 'Alterar limite mensal',
-      description:
-          'Informe o valor máximo que você planeja gastar por mês.',
+      description: 'Informe o valor máximo que você planeja gastar por mês.',
       buttonLabel: 'Salvar limite',
       allowZero: false,
       initialValue: _monthlyLimit,
@@ -934,7 +923,9 @@ class _HomePageState extends State<HomePage> {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.history_rounded),
                   title: const Text('Ver histórico'),
-                  subtitle: const Text('Consultar adições, retiradas e ajustes'),
+                  subtitle: const Text(
+                    'Consultar adições, retiradas e ajustes',
+                  ),
                   onTap: () {
                     Navigator.of(sheetContext).pop(_ReserveAction.history);
                   },
@@ -1067,7 +1058,7 @@ class _HomePageState extends State<HomePage> {
     final bool hasMonthlyLimit = monthlyLimit != null && monthlyLimit > 0;
 
     final double rawLimitProgress = hasMonthlyLimit
-        ? _monthTotal / monthlyLimit!
+        ? _monthTotal / monthlyLimit
         : 0;
 
     final double indicatorProgress = rawLimitProgress.clamp(0.0, 1.0);
@@ -1078,7 +1069,7 @@ class _HomePageState extends State<HomePage> {
     );
 
     final double limitDifference = hasMonthlyLimit
-        ? monthlyLimit! - _monthTotal
+        ? monthlyLimit - _monthTotal
         : 0;
 
     final bool isOverLimit = hasMonthlyLimit && limitDifference < 0;

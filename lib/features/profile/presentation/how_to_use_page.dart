@@ -89,8 +89,9 @@ class HowToUsePage extends StatelessWidget {
       summary: 'Crie arquivos de relatório e cópias de segurança.',
       steps: <String>[
         'Em Perfil, use Exportar relatório para gerar PDF, Excel ou CSV.',
-        'Use Backup e restauração para guardar uma cópia dos dados.',
-        'Mantenha os arquivos gerados em um local seguro.',
+        'Use Backup e restauração para guardar uma cópia manual dos dados.',
+        'Os arquivos gerados não são criptografados. Compartilhe e mantenha '
+            'essas cópias somente em locais confiáveis.',
       ],
     ),
     _GuideItem(
@@ -100,6 +101,8 @@ class HowToUsePage extends StatelessWidget {
       steps: <String>[
         'Abra Perfil e toque em PIN de acesso.',
         'Crie um PIN de 4 a 6 números e confirme.',
+        'O PIN será solicitado ao abrir o Finanse e depois de 30 segundos '
+            'fora do aplicativo.',
         'Guarde o PIN em segurança para não perder o acesso ao aplicativo.',
       ],
     ),
@@ -146,9 +149,7 @@ class HowToUsePage extends StatelessWidget {
             decoration: BoxDecoration(
               color: primaryColor.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-              border: Border.all(
-                color: primaryColor.withValues(alpha: 0.20),
-              ),
+              border: Border.all(color: primaryColor.withValues(alpha: 0.20)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,12 +215,10 @@ class HowToUsePage extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(
             'Toque em um assunto para ver o passo a passo.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: textSecondary,
-            ),
+            style: theme.textTheme.bodyMedium?.copyWith(color: textSecondary),
           ),
           const SizedBox(height: AppSpacing.md),
-          ..._guideItems.map(( _GuideItem item) {
+          ..._guideItems.map((_GuideItem item) {
             return Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: Card(

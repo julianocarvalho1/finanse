@@ -72,6 +72,12 @@ class _BackupPageState extends State<BackupPage> {
       return;
     }
 
+    final bool confirmed = await _confirmUnencryptedBackup();
+
+    if (!confirmed || !mounted) {
+      return;
+    }
+
     HapticFeedback.selectionClick();
 
     setState(() {
@@ -140,6 +146,38 @@ class _BackupPageState extends State<BackupPage> {
         });
       }
     }
+  }
+
+  Future<bool> _confirmUnencryptedBackup() async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) {
+            return AlertDialog(
+              icon: const Icon(Icons.warning_amber_rounded),
+              title: const Text('Criar backup não criptografado?'),
+              content: const Text(
+                'O arquivo pode conter registros financeiros, configurações '
+                'e sua foto de perfil em formato legível. O PIN não é '
+                'incluído. Compartilhe somente com destinos confiáveis.',
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop(false);
+                  },
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop(true);
+                  },
+                  child: const Text('Criar backup'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
   }
 
   Future<void> _selectAndRestoreBackup() async {
@@ -456,20 +494,27 @@ class _BackupPageState extends State<BackupPage> {
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: primaryColor.withValues(alpha: 0.10),
+                color: AppColors.warning.withValues(alpha: 0.09),
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: primaryColor.withValues(alpha: 0.25)),
+                border: Border.all(
+                  color: AppColors.warning.withValues(alpha: 0.30),
+                ),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Icon(Icons.shield_outlined, color: primaryColor, size: 29),
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    color: AppColors.warning,
+                    size: 29,
+                  ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Text(
-                      'Crie uma cópia das despesas, recorrências '
-                      'e configurações do Finanse para guardar '
-                      'em um local seguro.',
+                      'O backup não é criptografado e pode conter registros '
+                      'financeiros, configurações e sua foto de perfil. '
+                      'O PIN não é incluído. Guarde e compartilhe o arquivo '
+                      'somente com destinos confiáveis.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: textSecondary,
                         height: 1.45,
@@ -673,8 +718,9 @@ class _BackupPageState extends State<BackupPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'A restauração substitui os dados atuais. '
-                          'As configurações deste aparelho não serão alteradas.',
+                      'A restauração substitui os dados atuais. Use somente '
+                      'arquivos que você mesmo criou. As configurações deste '
+                      'aparelho não serão alteradas.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: textSecondary,
                         height: 1.4,

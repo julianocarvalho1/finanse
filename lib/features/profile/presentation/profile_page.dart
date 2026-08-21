@@ -89,9 +89,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     setState(() {
       final double? savedLimit = preferences.getDouble('monthlyLimit');
-      _monthlyLimit = savedLimit != null && savedLimit > 0
-          ? savedLimit
-          : null;
+      _monthlyLimit = savedLimit != null && savedLimit > 0 ? savedLimit : null;
       _userName = savedUserName;
       _profilePhotoPath = savedProfilePhotoPath;
       _hasPin = hasPin;
@@ -444,10 +442,7 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
-          builder: (
-            BuildContext context,
-            StateSetter setDialogState,
-          ) {
+          builder: (BuildContext context, StateSetter setDialogState) {
             void submitValue() {
               String normalizedValue = inputValue.trim().replaceAll(' ', '');
 
@@ -519,10 +514,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         borderSide: BorderSide(color: primaryColor),
                       ),
                       focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: primaryColor,
-                          width: 2,
-                        ),
+                        borderSide: BorderSide(color: primaryColor, width: 2),
                       ),
                     ),
                     onChanged: (String value) {
@@ -582,8 +574,7 @@ class _ProfilePageState extends State<ProfilePage> {
       return;
     }
 
-    final SharedPreferences preferences =
-        await SharedPreferences.getInstance();
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
 
     if (newValue == 0) {
       await preferences.remove('monthlyLimit');
@@ -1148,14 +1139,14 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildListTile(
               icon: Icons.cloud_done_rounded,
               title: 'Backup e Restauração',
-              subtitle: 'Faça backup seguro dos seus dados',
+              subtitle: 'Crie e compartilhe uma cópia local dos seus dados',
               onTap: _openBackup,
             ),
           ], isDark),
           const SizedBox(height: 32),
           Center(
             child: Text(
-              'Finanse App v1.0.1',
+              'Finanse App v1.0.2',
               style: TextStyle(color: textMuted, fontSize: 12),
             ),
           ),

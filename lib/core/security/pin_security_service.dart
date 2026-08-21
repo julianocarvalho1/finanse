@@ -4,11 +4,26 @@ import 'dart:math';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+class PinVerificationResult {
+  const PinVerificationResult({
+    required this.isValid,
+    required this.attemptsRemaining,
+    this.retryAfter = Duration.zero,
+  });
+
+  final bool isValid;
+  final int attemptsRemaining;
+  final Duration retryAfter;
+
+  bool get isLocked => retryAfter > Duration.zero;
+}
+
 class PinSecurityService {
   PinSecurityService({
     FlutterSecureStorage? secureStorage,
     Pbkdf2? pbkdf2,
     Random? secureRandom,
+    DateTime Function()? nowProvider,
   }) : _secureStorage = secureStorage ?? FlutterSecureStorage(),
        _pbkdf2 =
            pbkdf2 ??
@@ -17,20 +32,26 @@ class PinSecurityService {
              iterations: _defaultIterations,
              bits: 256,
            ),
-       _secureRandom = secureRandom ?? Random.secure();
+       _secureRandom = secureRandom ?? Random.secure(),
+       _nowProvider = nowProvider ?? DateTime.now;
 
   static final PinSecurityService instance = PinSecurityService();
 
   static const String _pinHashKey = 'finansePinHash';
   static const String _pinSaltKey = 'finansePinSalt';
   static const String _pinIterationsKey = 'finansePinIterations';
+  static const String _failedAttemptsKey = 'finansePinFailedAttempts';
+  static const String _lockoutUntilKey = 'finansePinLockoutUntil';
 
   static const int _defaultIterations = 120000;
   static const int _saltLength = 16;
+  static const int maxFailedAttempts = 5;
+  static const Duration lockoutDuration = Duration(seconds: 30);
 
   final FlutterSecureStorage _secureStorage;
   final Pbkdf2 _pbkdf2;
   final Random _secureRandom;
+  final DateTime Function() _nowProvider;
 
   bool isValidPinFormat(String pin) {
     return RegExp(r'^\d{4,6}$').hasMatch(pin);
@@ -72,9 +93,101 @@ class PinSecurityService {
       key: _pinIterationsKey,
       value: _defaultIterations.toString(),
     );
+
+    await _clearFailedAttempts();
   }
 
   Future<bool> verifyPin(String pin) async {
+    final PinVerificationResult result = await verifyPinWithProtection(pin);
+
+    return result.isValid;
+  }
+
+  Future<PinVerificationResult> verifyPinWithProtection(String pin) async {
+    final Duration retryAfter = await getLockoutRemaining();
+
+    if (retryAfter > Duration.zero) {
+      return PinVerificationResult(
+        isValid: false,
+        attemptsRemaining: 0,
+        retryAfter: retryAfter,
+      );
+    }
+
+    final bool isValid = await _verifyPinHash(pin);
+
+    if (isValid) {
+      await _clearFailedAttempts();
+
+      return const PinVerificationResult(
+        isValid: true,
+        attemptsRemaining: maxFailedAttempts,
+      );
+    }
+
+    if (!isValidPinFormat(pin)) {
+      return const PinVerificationResult(
+        isValid: false,
+        attemptsRemaining: maxFailedAttempts,
+      );
+    }
+
+    final int failedAttempts = await _readFailedAttempts() + 1;
+
+    if (failedAttempts >= maxFailedAttempts) {
+      final DateTime lockoutUntil = _nowProvider().add(lockoutDuration);
+
+      await _secureStorage.write(
+        key: _lockoutUntilKey,
+        value: lockoutUntil.toUtc().toIso8601String(),
+      );
+      await _secureStorage.delete(key: _failedAttemptsKey);
+
+      return const PinVerificationResult(
+        isValid: false,
+        attemptsRemaining: 0,
+        retryAfter: lockoutDuration,
+      );
+    }
+
+    await _secureStorage.write(
+      key: _failedAttemptsKey,
+      value: failedAttempts.toString(),
+    );
+
+    return PinVerificationResult(
+      isValid: false,
+      attemptsRemaining: maxFailedAttempts - failedAttempts,
+    );
+  }
+
+  Future<Duration> getLockoutRemaining() async {
+    final String? storedLockoutUntil = await _secureStorage.read(
+      key: _lockoutUntilKey,
+    );
+
+    if (storedLockoutUntil == null || storedLockoutUntil.isEmpty) {
+      return Duration.zero;
+    }
+
+    final DateTime? lockoutUntil = DateTime.tryParse(storedLockoutUntil);
+
+    if (lockoutUntil == null) {
+      await _secureStorage.delete(key: _lockoutUntilKey);
+      return Duration.zero;
+    }
+
+    final Duration remaining = lockoutUntil.difference(_nowProvider().toUtc());
+
+    if (remaining <= Duration.zero) {
+      await _clearFailedAttempts();
+      return Duration.zero;
+    }
+
+    return remaining;
+  }
+
+  Future<bool> _verifyPinHash(String pin) async {
     if (!isValidPinFormat(pin)) {
       return false;
     }
@@ -126,6 +239,20 @@ class PinSecurityService {
     await _secureStorage.delete(key: _pinHashKey);
     await _secureStorage.delete(key: _pinSaltKey);
     await _secureStorage.delete(key: _pinIterationsKey);
+    await _clearFailedAttempts();
+  }
+
+  Future<int> _readFailedAttempts() async {
+    final String? storedAttempts = await _secureStorage.read(
+      key: _failedAttemptsKey,
+    );
+
+    return int.tryParse(storedAttempts ?? '') ?? 0;
+  }
+
+  Future<void> _clearFailedAttempts() async {
+    await _secureStorage.delete(key: _failedAttemptsKey);
+    await _secureStorage.delete(key: _lockoutUntilKey);
   }
 
   Future<List<int>> _derivePinHash({
