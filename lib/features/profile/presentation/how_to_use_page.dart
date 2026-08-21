@@ -88,11 +88,14 @@ class HowToUsePage extends StatelessWidget {
     _GuideItem(
       icon: Icons.bar_chart_rounded,
       title: 'Entenda seus relatórios',
-      summary: 'Veja para onde seu dinheiro está indo.',
+      summary: 'Veja seus gastos e acompanhe a evolução mensal.',
       steps: <String>[
         'Abra Relatórios na barra inferior.',
         'Compare totais e categorias no período selecionado.',
-        'Use essas informações para ajustar seu limite e seus hábitos.',
+        'Toque em Evolução mensal para alternar entre os últimos 6 e 12 meses.',
+        'Compare renda, gastos, resultado e taxa de economia nos gráficos.',
+        'Toque em um mês para corrigir rendas, limite ou gastos antigos.',
+        'Meses encerrados são recalculados quando um registro é corrigido.',
       ],
     ),
     _GuideItem(

@@ -7,6 +7,7 @@ import 'package:finanse/core/theme/app_colors.dart';
 import 'package:finanse/core/theme/app_spacing.dart';
 import 'package:finanse/core/utils/category_style.dart';
 import 'package:finanse/core/utils/expense_notifier.dart';
+import 'package:finanse/features/evolution/presentation/financial_evolution_page.dart';
 import 'package:finanse/features/expenses/data/expense_repository.dart';
 import 'package:finanse/features/expenses/domain/expense.dart';
 import 'package:finanse/features/expenses/presentation/widgets/add_expense_modal.dart';
@@ -788,6 +789,8 @@ class _ReportsPageState extends State<ReportsPage> {
         children: <Widget>[
           _buildHeader(theme),
           const SizedBox(height: AppSpacing.xl),
+          _buildEvolutionEntry(theme),
+          const SizedBox(height: AppSpacing.xl),
           if (_categoryStats.isEmpty)
             _EmptyReportsState(
               periodTitle: _periodTitle(),
@@ -896,6 +899,57 @@ class _ReportsPageState extends State<ReportsPage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildEvolutionEntry(ThemeData theme) {
+    return Card(
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const FinancialEvolutionPage(),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
+                ),
+                child: Icon(
+                  Icons.insights_rounded,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text('Evolução mensal', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      'Compare renda, limite, gastos, resultado e taxa de economia.',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              const Icon(Icons.chevron_right_rounded),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
