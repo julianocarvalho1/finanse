@@ -25,6 +25,7 @@ void main() {
         previousBalance REAL NOT NULL,
         balanceAfter REAL NOT NULL,
         note TEXT,
+        originYearMonth TEXT,
         createdAt TEXT NOT NULL
       )
     ''');
@@ -84,5 +85,18 @@ void main() {
 
     expect(ignored, isNull);
     expect(await repository.getCurrentBalance(), 750);
+  });
+
+  test('rastreia destinação por mês sem tratá-la como gasto', () async {
+    await repository.addAmount(
+      3200,
+      originYearMonth: '2026-08',
+      note: 'Resultado do mês',
+    );
+    await repository.addAmount(100);
+
+    expect(await repository.getAllocatedCentsForMonth('2026-08'), 320000);
+    expect(await repository.getAllocatedCentsForMonth('2026-09'), 0);
+    expect(await repository.getCurrentBalance(), 3300);
   });
 }

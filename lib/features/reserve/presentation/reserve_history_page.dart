@@ -182,7 +182,10 @@ class _ReserveHistoryPageState extends State<ReserveHistoryPage> {
               color: AppColors.textMuted(context),
             ),
             const SizedBox(height: AppSpacing.md),
-            Text('Nenhuma movimentação ainda', style: theme.textTheme.titleSmall),
+            Text(
+              'Nenhuma movimentação ainda',
+              style: theme.textTheme.titleSmall,
+            ),
             const SizedBox(height: AppSpacing.xs),
             Text(
               'As adições, retiradas e ajustes da sua reserva aparecerão aqui.',
@@ -301,6 +304,28 @@ class _ReserveHistoryCard extends StatelessWidget {
                       color: AppColors.textMuted(context),
                     ),
                   ),
+                  if (transaction.originYearMonth != null) ...<Widget>[
+                    const SizedBox(height: AppSpacing.xs),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xs,
+                        vertical: AppSpacing.xxs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: style.color.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.buttonRadius,
+                        ),
+                      ),
+                      child: Text(
+                        'Resultado de ${_formatOriginMonth(transaction.originYearMonth!)}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: style.color,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                   if (transaction.note?.isNotEmpty ?? false) ...<Widget>[
                     const SizedBox(height: AppSpacing.xs),
                     Text(
@@ -320,10 +345,18 @@ class _ReserveHistoryCard extends StatelessWidget {
     );
   }
 
-  _ReserveHistoryStyle _styleFor(
-    ReserveTransactionType type,
-    ThemeData theme,
-  ) {
+  String _formatOriginMonth(String yearMonth) {
+    final List<String> parts = yearMonth.split('-');
+    if (parts.length != 2) return yearMonth;
+    final int? year = int.tryParse(parts[0]);
+    final int? month = int.tryParse(parts[1]);
+    if (year == null || month == null || month < 1 || month > 12) {
+      return yearMonth;
+    }
+    return DateFormat("MMMM 'de' yyyy", 'pt_BR').format(DateTime(year, month));
+  }
+
+  _ReserveHistoryStyle _styleFor(ReserveTransactionType type, ThemeData theme) {
     switch (type) {
       case ReserveTransactionType.add:
         return const _ReserveHistoryStyle(

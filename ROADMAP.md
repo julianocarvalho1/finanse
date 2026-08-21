@@ -85,7 +85,7 @@ novas funcionalidades. Versão planejada: `1.0.2+3`.
 - [x] Proteger o backup com criptografia ou deixar explícito que o arquivo não é
   criptografado e contém dados financeiros legíveis.
 - [x] Remover o arquivo de backup de exemplo da versão atual do repositório.
-- [ ] Confirmar se o backup de exemplo continha dados reais; se continha,
+- [x] Confirmar se o backup de exemplo continha dados reais; se continha,
   removê-lo também do histórico público do Git com uma operação coordenada.
 - [x] Atualizar a política de privacidade para refletir PIN, foto de perfil,
   backup manual, exportação e notificações.
@@ -99,12 +99,11 @@ novas funcionalidades. Versão planejada: `1.0.2+3`.
   outros artefatos gerados).
 - [x] Incluir os arquivos do Gradle Wrapper necessários para builds em máquinas
   novas e no GitHub Actions.
-- [~] Organizar as branches: preservar a política publicada, integrar a versão
+- [x] Organizar as branches: preservar a política publicada, integrar a versão
   atual do aplicativo e atualizar a `main`.
 - [x] Atualizar o README com instalação, arquitetura, privacidade e processo de
   release.
-- [~] Adicionar validação automática de análise e testes no GitHub (workflow
-  criado localmente; falta publicar).
+- [x] Adicionar validação automática de análise, testes e build no GitHub.
 
 ### Critério de conclusão
 
@@ -112,8 +111,8 @@ novas funcionalidades. Versão planejada: `1.0.2+3`.
 - [x] Todos os testes aprovados.
 - [x] AAB release assinado e versão release instalada no emulador Android.
 - [x] PIN realmente exigido nos cenários definidos.
-- [~] Política compatível criada; falta publicar a atualização no GitHub Pages.
-- [ ] Repositório remoto contém exatamente o código usado para gerar a versão.
+- [x] Política compatível publicada pelo repositório do GitHub Pages.
+- [x] Repositório remoto contém exatamente o código usado para gerar a versão.
 
 ---
 
@@ -123,48 +122,48 @@ Objetivo: apresentar a relação entre renda, limite de gastos e sobra esperada.
 
 ### Modelo de dados
 
-- [ ] Criar o cadastro de renda com valor, descrição/fonte, data e recorrência
+- [x] Criar o cadastro de renda com valor, descrição/fonte, data e recorrência
   opcional.
-- [ ] Criar o planejamento mensal com mês, limite de gastos e data de criação.
-- [ ] Migrar o limite atual para o planejamento do mês correspondente.
-- [ ] Persistir os novos valores monetários em centavos inteiros.
-- [ ] Preparar migrações de banco com testes de atualização e reversão em caso
+- [x] Criar o planejamento mensal com mês, limite de gastos e data de criação.
+- [x] Migrar o limite atual para o planejamento do mês correspondente.
+- [x] Persistir os novos valores monetários em centavos inteiros.
+- [x] Preparar migrações de banco com testes de atualização e reversão em caso
   de erro.
 
 ### Experiência do usuário
 
-- [ ] Criar a área `Rendas` para adicionar, editar e excluir entradas.
-- [ ] Permitir múltiplas fontes, como salário, trabalho extra e outras rendas.
-- [ ] Permitir repetir automaticamente uma renda nos próximos meses.
-- [ ] Manter o limite de gastos independente da renda cadastrada.
-- [ ] Exibir na tela inicial:
+- [x] Criar a área `Rendas` para adicionar, editar e excluir entradas.
+- [x] Permitir múltiplas fontes, como salário, trabalho extra e outras rendas.
+- [x] Permitir repetir automaticamente uma renda nos próximos meses.
+- [x] Manter o limite de gastos independente da renda cadastrada.
+- [x] Exibir na tela inicial:
   - renda total do mês;
   - limite definido;
   - gastos realizados;
   - valor disponível dentro do limite;
   - sobra planejada;
   - resultado atual do mês.
-- [ ] Mostrar estados claros para resultado positivo, atenção, limite excedido e
+- [x] Mostrar estados claros para resultado positivo, atenção, limite excedido e
   déficit.
-- [ ] Informar que os resultados são baseados nos registros manuais do Finanse.
+- [x] Informar que os resultados são baseados nos registros manuais do Finanse.
 
 ### Integração com a reserva
 
-- [ ] Oferecer `Destinar para a reserva` a partir do resultado positivo.
-- [ ] Impedir que a destinação seja contabilizada como despesa.
-- [ ] Registrar o mês de origem da destinação.
-- [ ] Impedir destinação superior ao resultado disponível, salvo confirmação
+- [x] Oferecer `Destinar para a reserva` a partir do resultado positivo.
+- [x] Impedir que a destinação seja contabilizada como despesa.
+- [x] Registrar o mês de origem da destinação.
+- [x] Impedir destinação superior ao resultado disponível, salvo confirmação
   explícita do usuário.
 
 ### Critério de conclusão
 
-- [ ] O exemplo de R$ 5.000 de renda e R$ 2.000 de limite produz os cálculos
+- [x] O exemplo de R$ 5.000 de renda e R$ 2.000 de limite produz os cálculos
   definidos neste documento.
-- [ ] Usuários sem renda cadastrada continuam usando todos os recursos atuais.
-- [ ] Editar ou excluir uma renda atualiza os totais imediatamente.
-- [ ] Gastos e rendas de meses diferentes nunca se misturam.
-- [ ] Transferir para a reserva não altera o total de gastos.
-- [ ] Cálculos cobertos por testes unitários e de banco de dados.
+- [x] Usuários sem renda cadastrada continuam usando todos os recursos atuais.
+- [x] Editar ou excluir uma renda atualiza os totais imediatamente.
+- [x] Gastos e rendas de meses diferentes nunca se misturam.
+- [x] Transferir para a reserva não altera o total de gastos.
+- [x] Cálculos cobertos por testes unitários e de banco de dados.
 
 ---
 

@@ -12,8 +12,8 @@ informações usadas em seu funcionamento.
 ## 1. Sobre o Finanse
 
 O Finanse é um aplicativo de planejamento financeiro pessoal. Ele permite
-registrar manualmente despesas, recorrências, limites, reserva, preferências e
-outros dados relacionados à organização financeira.
+registrar manualmente despesas, rendas, recorrências, limites mensais, reserva,
+preferências e outros dados relacionados à organização financeira.
 
 O Finanse não se conecta a bancos, não consulta contas bancárias e não exige a
 criação de uma conta de usuário.
@@ -24,7 +24,8 @@ Dependendo dos recursos utilizados, o aplicativo pode tratar localmente:
 
 - valores, descrições, categorias, datas, observações e formas de pagamento de
   despesas;
-- despesas recorrentes, limites e movimentações da reserva;
+- fontes e valores de renda, datas e recorrência mensal opcional;
+- despesas recorrentes, limites mensais e movimentações da reserva;
 - nome de exibição e foto de perfil opcionais;
 - tema, notificações e outras preferências do aplicativo;
 - PIN de acesso, quando ativado pelo usuário.

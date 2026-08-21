@@ -69,7 +69,6 @@ void main() {
       )
     ''');
 
-
     await database.execute('''
       CREATE TABLE ${AppDatabase.reserveTransactionsTable} (
         id TEXT PRIMARY KEY,
@@ -78,7 +77,29 @@ void main() {
         previousBalance REAL NOT NULL,
         balanceAfter REAL NOT NULL,
         note TEXT,
+        originYearMonth TEXT,
         createdAt TEXT NOT NULL
+      )
+    ''');
+
+    await database.execute('''
+      CREATE TABLE ${AppDatabase.incomesTable} (
+        id TEXT PRIMARY KEY,
+        amountCents INTEGER NOT NULL,
+        source TEXT NOT NULL,
+        date TEXT NOT NULL,
+        recurrence TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      )
+    ''');
+
+    await database.execute('''
+      CREATE TABLE ${AppDatabase.monthlyPlansTable} (
+        yearMonth TEXT PRIMARY KEY,
+        spendingLimitCents INTEGER NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
       )
     ''');
 
@@ -135,6 +156,22 @@ void main() {
               'updatedAt': DateTime(2026, 7, 1).toIso8601String(),
             });
 
+        await database.insert(AppDatabase.incomesTable, <String, Object?>{
+          'id': 'income-backup-1',
+          'amountCents': 500000,
+          'source': 'Salário',
+          'date': DateTime(2026, 7, 5).toIso8601String(),
+          'recurrence': 'monthly',
+          'createdAt': DateTime(2026, 7, 1).toIso8601String(),
+          'updatedAt': DateTime(2026, 7, 1).toIso8601String(),
+        });
+        await database.insert(AppDatabase.monthlyPlansTable, <String, Object?>{
+          'yearMonth': '2026-07',
+          'spendingLimitCents': 200000,
+          'createdAt': DateTime(2026, 7, 1).toIso8601String(),
+          'updatedAt': DateTime(2026, 7, 1).toIso8601String(),
+        });
+
         final CreatedBackup backup = await backupService.createBackup();
 
         expect(await backup.file.exists(), isTrue);
@@ -145,7 +182,9 @@ void main() {
         expect(backup.createdAt, fixedNow);
         expect(backup.expenseCount, 1);
         expect(backup.recurringExpenseCount, 1);
-        expect(backup.totalRecordCount, 2);
+        expect(backup.incomeCount, 1);
+        expect(backup.monthlyPlanCount, 1);
+        expect(backup.totalRecordCount, 4);
 
         final String fileContent = await backup.file.readAsString(
           encoding: utf8,
@@ -156,8 +195,8 @@ void main() {
         );
 
         expect(document['signature'], 'FINANSE_BACKUP');
-        expect(document['formatVersion'], 3);
-        expect(document['databaseVersion'], 5);
+        expect(document['formatVersion'], 4);
+        expect(document['databaseVersion'], 6);
 
         expect(
           DateTime.parse(document['createdAt'] as String),
@@ -171,6 +210,8 @@ void main() {
         expect(integrity['expenseCount'], 1);
         expect(integrity['recurringExpenseCount'], 1);
         expect(integrity['reserveTransactionCount'], 0);
+        expect(integrity['incomeCount'], 1);
+        expect(integrity['monthlyPlanCount'], 1);
         expect(
           integrity['checksum'],
           isA<String>().having(
@@ -190,6 +231,9 @@ void main() {
             payload['recurringExpenses'] as List<dynamic>;
         final List<dynamic> reserveTransactions =
             payload['reserveTransactions'] as List<dynamic>;
+        final List<dynamic> incomes = payload['incomes'] as List<dynamic>;
+        final List<dynamic> monthlyPlans =
+            payload['monthlyPlans'] as List<dynamic>;
 
         final Map<String, dynamic> preferences = Map<String, dynamic>.from(
           payload['preferences'] as Map,
@@ -198,6 +242,10 @@ void main() {
         expect(expenses, hasLength(1));
         expect(recurringExpenses, hasLength(1));
         expect(reserveTransactions, isEmpty);
+        expect(incomes, hasLength(1));
+        expect(monthlyPlans, hasLength(1));
+        expect((incomes.first as Map)['amountCents'], 500000);
+        expect((monthlyPlans.first as Map)['spendingLimitCents'], 200000);
 
         expect((expenses.first as Map)['id'], 'expense-backup-1');
 
@@ -265,6 +313,22 @@ void main() {
             'updatedAt': DateTime(2026, 7, 15).toIso8601String(),
           });
 
+      await database.insert(AppDatabase.incomesTable, <String, Object?>{
+        'id': 'income-original',
+        'amountCents': 500000,
+        'source': 'Salário',
+        'date': DateTime(2026, 7, 5).toIso8601String(),
+        'recurrence': 'monthly',
+        'createdAt': DateTime(2026, 7, 1).toIso8601String(),
+        'updatedAt': DateTime(2026, 7, 1).toIso8601String(),
+      });
+      await database.insert(AppDatabase.monthlyPlansTable, <String, Object?>{
+        'yearMonth': '2026-07',
+        'spendingLimitCents': 200000,
+        'createdAt': DateTime(2026, 7, 1).toIso8601String(),
+        'updatedAt': DateTime(2026, 7, 1).toIso8601String(),
+      });
+
       final CreatedBackup createdBackup = await backupService.createBackup();
 
       final String backupContent = await createdBackup.file.readAsString(
@@ -278,6 +342,8 @@ void main() {
       await database.delete(AppDatabase.expensesTable);
 
       await database.delete(AppDatabase.recurringExpensesTable);
+      await database.delete(AppDatabase.incomesTable);
+      await database.delete(AppDatabase.monthlyPlansTable);
 
       await database.insert(AppDatabase.expensesTable, <String, Object?>{
         'id': 'expense-temporary',
@@ -316,7 +382,9 @@ void main() {
       expect(result.restoredAt, fixedNow);
       expect(result.expenseCount, 1);
       expect(result.recurringExpenseCount, 1);
-      expect(result.totalRecordCount, 2);
+      expect(result.incomeCount, 1);
+      expect(result.monthlyPlanCount, 1);
+      expect(result.totalRecordCount, 4);
 
       final List<Map<String, Object?>> expenses = await database.query(
         AppDatabase.expensesTable,
@@ -324,6 +392,12 @@ void main() {
 
       final List<Map<String, Object?>> recurringExpenses = await database.query(
         AppDatabase.recurringExpensesTable,
+      );
+      final List<Map<String, Object?>> incomes = await database.query(
+        AppDatabase.incomesTable,
+      );
+      final List<Map<String, Object?>> monthlyPlans = await database.query(
+        AppDatabase.monthlyPlansTable,
       );
 
       expect(expenses, hasLength(1));
@@ -334,6 +408,8 @@ void main() {
       expect(recurringExpenses, hasLength(1));
       expect(recurringExpenses.first['id'], 'recurring-original');
       expect(recurringExpenses.first['registeredCount'], 2);
+      expect(incomes.single['amountCents'], 500000);
+      expect(monthlyPlans.single['spendingLimitCents'], 200000);
 
       expect(preferences.getBool('notificationsEnabled'), isTrue);
 

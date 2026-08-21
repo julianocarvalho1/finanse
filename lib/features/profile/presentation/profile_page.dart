@@ -11,8 +11,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finanse/core/notifications/notification_service.dart';
 import 'package:finanse/core/security/pin_security_service.dart';
 import 'package:finanse/core/theme/app_colors.dart';
-import 'package:finanse/core/utils/expense_notifier.dart';
+import 'package:finanse/core/utils/financial_plan_notifier.dart';
 import 'package:finanse/core/utils/theme_notifier.dart';
+import 'package:finanse/features/planning/data/monthly_plan_repository.dart';
+import 'package:finanse/features/incomes/presentation/incomes_page.dart';
 import 'package:finanse/features/recurring_expenses/data/recurring_notification_scheduler.dart';
 import 'package:finanse/features/recurring_expenses/presentation/recurring_expenses_page.dart';
 import 'package:finanse/features/profile/presentation/backup_page.dart';
@@ -30,6 +32,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  final MonthlyPlanRepository _monthlyPlanRepository = MonthlyPlanRepository();
   double? _monthlyLimit;
   String _userName = '';
   String _profilePhotoPath = '';
@@ -42,7 +45,17 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
+    financialPlanNotifier.addListener(_handleFinancialPlanChanged);
+    _loadPreferences();
+  }
 
+  @override
+  void dispose() {
+    financialPlanNotifier.removeListener(_handleFinancialPlanChanged);
+    super.dispose();
+  }
+
+  void _handleFinancialPlanChanged() {
     _loadPreferences();
   }
 
@@ -82,14 +95,21 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     final bool hasPin = await PinSecurityService.instance.hasPin();
+    final double? legacyLimit = preferences.getDouble('monthlyLimit');
+    final monthlyPlan = await _monthlyPlanRepository.migrateLegacyLimit(
+      month: DateTime.now(),
+      legacyLimit: legacyLimit,
+    );
+    if (legacyLimit != null) {
+      await preferences.remove('monthlyLimit');
+    }
 
     if (!mounted) {
       return;
     }
 
     setState(() {
-      final double? savedLimit = preferences.getDouble('monthlyLimit');
-      _monthlyLimit = savedLimit != null && savedLimit > 0 ? savedLimit : null;
+      _monthlyLimit = monthlyPlan?.spendingLimit;
       _userName = savedUserName;
       _profilePhotoPath = savedProfilePhotoPath;
       _hasPin = hasPin;
@@ -388,6 +408,15 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Future<void> _openIncomes() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const IncomesPage()));
+    if (mounted) {
+      await _loadPreferences();
+    }
+  }
+
   void _openExport() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -574,12 +603,13 @@ class _ProfilePageState extends State<ProfilePage> {
       return;
     }
 
-    final SharedPreferences preferences = await SharedPreferences.getInstance();
-
     if (newValue == 0) {
-      await preferences.remove('monthlyLimit');
+      await _monthlyPlanRepository.deletePlanForMonth(DateTime.now());
     } else {
-      await preferences.setDouble('monthlyLimit', newValue);
+      await _monthlyPlanRepository.saveLimit(
+        month: DateTime.now(),
+        spendingLimitCents: (newValue * 100).round(),
+      );
     }
 
     if (!mounted) {
@@ -590,7 +620,7 @@ class _ProfilePageState extends State<ProfilePage> {
       _monthlyLimit = newValue == 0 ? null : newValue;
     });
 
-    expenseNotifier.value++;
+    notifyFinancialPlanChanged();
   }
 
   Widget _buildColorOption(Color color) {
@@ -1057,6 +1087,14 @@ class _ProfilePageState extends State<ProfilePage> {
           ], isDark),
           _buildSectionHeader('Controle Financeiro'),
           _buildSettingsGroup(<Widget>[
+            _buildListTile(
+              icon: Icons.payments_outlined,
+              title: 'Rendas',
+              subtitle: 'Salário, extras e outras fontes',
+              iconColor: primaryColor,
+              onTap: _openIncomes,
+            ),
+            Divider(height: 1, color: dividerColor, indent: 20, endIndent: 20),
             _buildListTile(
               icon: Icons.track_changes_rounded,
               title: 'Limite Mensal',
