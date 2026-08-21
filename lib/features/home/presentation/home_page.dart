@@ -7,9 +7,15 @@ import 'package:finanse/core/theme/app_colors.dart';
 import 'package:finanse/core/theme/app_spacing.dart';
 import 'package:finanse/core/utils/category_style.dart';
 import 'package:finanse/core/utils/expense_notifier.dart';
+import 'package:finanse/core/utils/financial_plan_notifier.dart';
 import 'package:finanse/features/expenses/data/expense_repository.dart';
 import 'package:finanse/features/expenses/domain/expense.dart';
 import 'package:finanse/features/expenses/presentation/widgets/add_expense_modal.dart';
+import 'package:finanse/features/incomes/data/income_repository.dart';
+import 'package:finanse/features/incomes/presentation/incomes_page.dart';
+import 'package:finanse/features/planning/data/monthly_plan_repository.dart';
+import 'package:finanse/features/planning/domain/monthly_financial_summary.dart';
+import 'package:finanse/features/planning/domain/monthly_plan.dart';
 import 'package:finanse/features/reserve/data/reserve_repository.dart';
 import 'package:finanse/features/reserve/domain/reserve_transaction.dart';
 import 'package:finanse/features/reserve/presentation/reserve_history_page.dart';
@@ -28,6 +34,8 @@ class _HomePageState extends State<HomePage> {
 
   final ExpenseRepository _repository = ExpenseRepository();
   final ReserveRepository _reserveRepository = ReserveRepository();
+  final IncomeRepository _incomeRepository = IncomeRepository();
+  final MonthlyPlanRepository _monthlyPlanRepository = MonthlyPlanRepository();
 
   late final NumberFormat _currencyFormatter;
 
@@ -38,6 +46,8 @@ class _HomePageState extends State<HomePage> {
   double _previousPeriodTotal = 0;
   double _monthTotal = 0;
   double? _monthlyLimit;
+  int _monthlyIncomeCents = 0;
+  int _allocatedFromResultCents = 0;
   double _savingsReserve = 0;
 
   bool _showSavingsReserve = false;
@@ -61,16 +71,22 @@ class _HomePageState extends State<HomePage> {
     );
 
     expenseNotifier.addListener(_handleExpensesChanged);
+    financialPlanNotifier.addListener(_handleFinancialPlanChanged);
     _loadData();
   }
 
   @override
   void dispose() {
     expenseNotifier.removeListener(_handleExpensesChanged);
+    financialPlanNotifier.removeListener(_handleFinancialPlanChanged);
     super.dispose();
   }
 
   void _handleExpensesChanged() {
+    _loadData(showLoading: false);
+  }
+
+  void _handleFinancialPlanChanged() {
     _loadData(showLoading: false);
   }
 
@@ -89,6 +105,20 @@ class _HomePageState extends State<HomePage> {
           await SharedPreferences.getInstance();
 
       final double? savedLimit = preferences.getDouble('monthlyLimit');
+
+      final DateTime currentMonth = DateTime.now();
+      final monthlyPlan = await _monthlyPlanRepository.migrateLegacyLimit(
+        month: currentMonth,
+        legacyLimit: savedLimit,
+      );
+      if (savedLimit != null) {
+        await preferences.remove('monthlyLimit');
+      }
+
+      final int monthlyIncomeCents = await _incomeRepository
+          .getTotalCentsForMonth(currentMonth);
+      final int allocatedFromResultCents = await _reserveRepository
+          .getAllocatedCentsForMonth(MonthlyPlan.keyFor(currentMonth));
 
       final double legacyReserve = preferences.getDouble('savingsReserve') ?? 0;
 
@@ -127,9 +157,9 @@ class _HomePageState extends State<HomePage> {
       }
 
       setState(() {
-        _monthlyLimit = savedLimit != null && savedLimit > 0
-            ? savedLimit
-            : null;
+        _monthlyLimit = monthlyPlan?.spendingLimit;
+        _monthlyIncomeCents = monthlyIncomeCents;
+        _allocatedFromResultCents = allocatedFromResultCents;
         _savingsReserve = savedReserve >= 0 ? savedReserve : 0;
         _userName = savedUserName;
 
@@ -696,8 +726,10 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    final SharedPreferences preferences = await SharedPreferences.getInstance();
-    await preferences.setDouble('monthlyLimit', newLimit);
+    await _monthlyPlanRepository.saveLimit(
+      month: DateTime.now(),
+      spendingLimitCents: (newLimit * 100).round(),
+    );
 
     if (!mounted) {
       return;
@@ -707,7 +739,7 @@ class _HomePageState extends State<HomePage> {
       _monthlyLimit = newLimit;
     });
 
-    expenseNotifier.value++;
+    notifyFinancialPlanChanged();
   }
 
   Future<void> _persistReserveBalance(double value) async {
@@ -957,6 +989,251 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _openIncomes() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const IncomesPage()));
+    if (mounted) {
+      await _loadData(showLoading: false);
+    }
+  }
+
+  Future<void> _allocateResultToReserve(int availableResultCents) async {
+    if (availableResultCents <= 0) {
+      return;
+    }
+
+    final double? amount = await _requestReserveValue(
+      title: 'Destinar para a reserva',
+      description:
+          'Este registro não será contado como gasto. Ele apenas indica quanto do resultado do mês foi guardado.',
+      buttonLabel: 'Destinar',
+      allowZero: false,
+      initialValue: availableResultCents / 100,
+    );
+
+    if (amount == null || !mounted) {
+      return;
+    }
+
+    final int amountCents = (amount * 100).round();
+    if (amountCents > availableResultCents) {
+      final bool confirmed =
+          await showDialog<bool>(
+            context: context,
+            builder: (BuildContext dialogContext) {
+              return AlertDialog(
+                icon: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppColors.warning,
+                ),
+                title: const Text('Valor acima do resultado disponível'),
+                content: Text(
+                  'O resultado ainda disponível é ${_currencyFormatter.format(availableResultCents / 100)}. Deseja registrar mesmo assim?',
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('Voltar'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('Confirmar'),
+                  ),
+                ],
+              );
+            },
+          ) ??
+          false;
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    try {
+      final DateTime now = DateTime.now();
+      final ReserveTransaction transaction = await _reserveRepository.addAmount(
+        amount,
+        note: 'Destinação do resultado de ${MonthlyPlan.keyFor(now)}.',
+        originYearMonth: MonthlyPlan.keyFor(now),
+      );
+      await _persistReserveBalance(transaction.balanceAfter);
+      notifyFinancialPlanChanged();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Valor destinado à reserva sem alterar os gastos do mês.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        _showErrorMessage('Não foi possível registrar a destinação.');
+      }
+    }
+  }
+
+  Widget _buildFinancialOverview(
+    ThemeData theme,
+    MonthlyFinancialSummary summary,
+  ) {
+    final int? resultCents = summary.currentResultCents;
+    final int availableForReserveCents = resultCents == null || resultCents <= 0
+        ? 0
+        : (resultCents - _allocatedFromResultCents).clamp(0, resultCents);
+
+    final (Color, IconData, String) status = switch (summary.status) {
+      MonthlyFinancialStatus.positive => (
+        AppColors.success,
+        Icons.trending_up_rounded,
+        'Resultado positivo neste mês.',
+      ),
+      MonthlyFinancialStatus.attention => (
+        AppColors.warning,
+        Icons.info_outline_rounded,
+        'Atenção ao uso do limite deste mês.',
+      ),
+      MonthlyFinancialStatus.limitExceeded => (
+        AppColors.error,
+        Icons.speed_rounded,
+        'O limite mensal foi excedido.',
+      ),
+      MonthlyFinancialStatus.deficit => (
+        AppColors.error,
+        Icons.trending_down_rounded,
+        'As despesas registradas superam a renda.',
+      ),
+      MonthlyFinancialStatus.neutral => (
+        theme.colorScheme.primary,
+        Icons.insights_outlined,
+        'Cadastre sua renda para completar o planejamento.',
+      ),
+    };
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    'Planejamento do mês',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _openIncomes,
+                  icon: const Icon(Icons.payments_outlined, size: 19),
+                  label: Text(summary.hasIncome ? 'Rendas' : 'Cadastrar renda'),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _FinancialValueRow(
+              label: 'Renda total',
+              value: summary.hasIncome
+                  ? _currencyFormatter.format(summary.incomeTotalCents / 100)
+                  : 'Não cadastrada',
+            ),
+            _FinancialValueRow(
+              label: 'Limite definido',
+              value: summary.hasLimit
+                  ? _currencyFormatter.format(summary.spendingLimitCents! / 100)
+                  : 'Não definido',
+            ),
+            _FinancialValueRow(
+              label: 'Gastos realizados',
+              value: _currencyFormatter.format(summary.spentCents / 100),
+            ),
+            if (summary.hasLimit)
+              _FinancialValueRow(
+                label: summary.overLimitCents > 0
+                    ? 'Excesso do limite'
+                    : 'Disponível no limite',
+                value: _currencyFormatter.format(
+                  (summary.overLimitCents > 0
+                          ? summary.overLimitCents
+                          : summary.availableWithinLimitCents!) /
+                      100,
+                ),
+                valueColor: summary.overLimitCents > 0 ? AppColors.error : null,
+              ),
+            if (summary.plannedSurplusCents != null)
+              _FinancialValueRow(
+                label: 'Sobra planejada',
+                value: _formatSignedCurrency(summary.plannedSurplusCents!),
+                valueColor: summary.plannedSurplusCents! < 0
+                    ? AppColors.warning
+                    : AppColors.success,
+              ),
+            if (resultCents != null)
+              _FinancialValueRow(
+                label: resultCents < 0 ? 'Déficit atual' : 'Resultado atual',
+                value: _formatSignedCurrency(resultCents),
+                valueColor: resultCents < 0
+                    ? AppColors.error
+                    : AppColors.success,
+                emphasize: true,
+              ),
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: status.$1.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
+              ),
+              child: Row(
+                children: <Widget>[
+                  Icon(status.$2, color: status.$1, size: 20),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      status.$3,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: status.$1,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Estimativa baseada apenas nos dados informados manualmente no Finanse.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.textMuted(context),
+              ),
+            ),
+            if (availableForReserveCents > 0) ...<Widget>[
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      _allocateResultToReserve(availableForReserveCents),
+                  icon: const Icon(Icons.savings_outlined),
+                  label: Text(
+                    'Destinar até ${_currencyFormatter.format(availableForReserveCents / 100)} para a reserva',
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatSignedCurrency(int cents) {
+    final String formatted = _currencyFormatter.format(cents.abs() / 100);
+    return cents < 0 ? '-$formatted' : formatted;
+  }
+
   Widget _buildSavingsReserveCard(ThemeData theme) {
     final String reserveText = _showSavingsReserve
         ? _currencyFormatter.format(_savingsReserve)
@@ -1074,6 +1351,12 @@ class _HomePageState extends State<HomePage> {
 
     final bool isOverLimit = hasMonthlyLimit && limitDifference < 0;
 
+    final MonthlyFinancialSummary financialSummary = MonthlyFinancialSummary(
+      incomeTotalCents: _monthlyIncomeCents,
+      spendingLimitCents: hasMonthlyLimit ? (monthlyLimit * 100).round() : null,
+      spentCents: (_monthTotal * 100).round(),
+    );
+
     final String limitMainText = isOverLimit
         ? '${_currencyFormatter.format(limitDifference.abs())} '
               'acima do limite'
@@ -1100,6 +1383,8 @@ class _HomePageState extends State<HomePage> {
           _buildPeriodSelector(theme),
           const SizedBox(height: AppSpacing.xl),
           _buildSummaryCard(theme),
+          const SizedBox(height: AppSpacing.md),
+          _buildFinancialOverview(theme, financialSummary),
           const SizedBox(height: AppSpacing.md),
           _buildSavingsReserveCard(theme),
           const SizedBox(height: AppSpacing.xxl),
@@ -1518,6 +1803,50 @@ class _HomePageState extends State<HomePage> {
       color: AppColors.error,
       icon: Icons.error_outline_rounded,
       text: 'Limite mensal excedido.',
+    );
+  }
+}
+
+class _FinancialValueRow extends StatelessWidget {
+  const _FinancialValueRow({
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.emphasize = false,
+  });
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: emphasize ? FontWeight.w700 : null,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Text(
+            value,
+            textAlign: TextAlign.end,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: valueColor,
+              fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

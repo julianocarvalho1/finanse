@@ -7,8 +7,10 @@ se conecta a bancos nem exige uma conta de usuário.
 ## Recursos atuais
 
 - registro, edição e exclusão de despesas;
+- cadastro manual de múltiplas rendas, com repetição mensal opcional;
 - despesas recorrentes e lembretes locais;
-- limite mensal e acompanhamento do valor utilizado;
+- planejamento mensal com limite independente da renda;
+- resumo de renda, gastos, sobra planejada e resultado atual;
 - reserva financeira com histórico de movimentações;
 - relatórios e exportações em PDF, Excel e CSV;
 - backup e restauração manual;

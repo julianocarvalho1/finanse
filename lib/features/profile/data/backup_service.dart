@@ -18,19 +18,26 @@ class CreatedBackup {
     required this.createdAt,
     required this.expenseCount,
     required this.recurringExpenseCount,
+    this.incomeCount = 0,
+    this.monthlyPlanCount = 0,
   });
 
   final File file;
   final DateTime createdAt;
   final int expenseCount;
   final int recurringExpenseCount;
+  final int incomeCount;
+  final int monthlyPlanCount;
 
   String get fileName {
     return path.basename(file.path);
   }
 
   int get totalRecordCount {
-    return expenseCount + recurringExpenseCount;
+    return expenseCount +
+        recurringExpenseCount +
+        incomeCount +
+        monthlyPlanCount;
   }
 }
 
@@ -42,12 +49,16 @@ class SelectedBackup {
     required this.expenseCount,
     required this.recurringExpenseCount,
     required this.document,
+    this.incomeCount = 0,
+    this.monthlyPlanCount = 0,
   });
 
   final file_selector.XFile file;
   final DateTime createdAt;
   final int expenseCount;
   final int recurringExpenseCount;
+  final int incomeCount;
+  final int monthlyPlanCount;
 
   /// Documento completo mantido em memória para a restauração.
   final Map<String, dynamic> document;
@@ -61,7 +72,10 @@ class SelectedBackup {
   }
 
   int get totalRecordCount {
-    return expenseCount + recurringExpenseCount;
+    return expenseCount +
+        recurringExpenseCount +
+        incomeCount +
+        monthlyPlanCount;
   }
 }
 
@@ -71,14 +85,21 @@ class BackupRestoreResult {
     required this.restoredAt,
     required this.expenseCount,
     required this.recurringExpenseCount,
+    this.incomeCount = 0,
+    this.monthlyPlanCount = 0,
   });
 
   final DateTime restoredAt;
   final int expenseCount;
   final int recurringExpenseCount;
+  final int incomeCount;
+  final int monthlyPlanCount;
 
   int get totalRecordCount {
-    return expenseCount + recurringExpenseCount;
+    return expenseCount +
+        recurringExpenseCount +
+        incomeCount +
+        monthlyPlanCount;
   }
 }
 
@@ -131,11 +152,11 @@ class BackupService {
 
   static const String _signature = 'FINANSE_BACKUP';
 
-  static const int _backupFormatVersion = 3;
+  static const int _backupFormatVersion = 4;
 
-  static const Set<int> _supportedBackupFormatVersions = <int>{1, 2, 3};
+  static const Set<int> _supportedBackupFormatVersions = <int>{1, 2, 3, 4};
 
-  static const int _databaseVersion = 5;
+  static const int _databaseVersion = 6;
   static const int _maxProfilePhotoBytes = 8 * 1024 * 1024;
 
   static const Set<String> _supportedProfilePhotoExtensions = <String>{
@@ -185,6 +206,16 @@ class BackupService {
             orderBy: 'createdAt ASC',
           );
 
+      final List<Map<String, Object?>> incomes = await database.query(
+        AppDatabase.incomesTable,
+        orderBy: 'date ASC',
+      );
+
+      final List<Map<String, Object?>> monthlyPlans = await database.query(
+        AppDatabase.monthlyPlansTable,
+        orderBy: 'yearMonth ASC',
+      );
+
       final SharedPreferences preferences =
           await SharedPreferences.getInstance();
 
@@ -208,6 +239,16 @@ class BackupService {
               return Map<String, Object?>.from(row);
             })
             .toList(growable: false),
+        'incomes': incomes
+            .map<Map<String, Object?>>((Map<String, Object?> row) {
+              return Map<String, Object?>.from(row);
+            })
+            .toList(growable: false),
+        'monthlyPlans': monthlyPlans
+            .map<Map<String, Object?>>((Map<String, Object?> row) {
+              return Map<String, Object?>.from(row);
+            })
+            .toList(growable: false),
         'preferences': _encodePreferences(preferences),
         'profilePhoto': profilePhoto,
       };
@@ -227,6 +268,8 @@ class BackupService {
           'expenseCount': expenses.length,
           'recurringExpenseCount': recurringExpenses.length,
           'reserveTransactionCount': reserveTransactions.length,
+          'incomeCount': incomes.length,
+          'monthlyPlanCount': monthlyPlans.length,
         },
         'payload': payload,
       };
@@ -282,6 +325,8 @@ class BackupService {
         createdAt: createdAt,
         expenseCount: expenses.length,
         recurringExpenseCount: recurringExpenses.length,
+        incomeCount: incomes.length,
+        monthlyPlanCount: monthlyPlans.length,
       );
     } on BackupException {
       rethrow;
@@ -378,6 +423,8 @@ class BackupService {
         createdAt: validated.createdAt,
         expenseCount: validated.expenses.length,
         recurringExpenseCount: validated.recurringExpenses.length,
+        incomeCount: validated.incomes.length,
+        monthlyPlanCount: validated.monthlyPlans.length,
         document: document,
       );
     } on BackupException {
@@ -412,6 +459,8 @@ class BackupService {
 
         await transaction.delete(AppDatabase.recurringExpensesTable);
         await transaction.delete(AppDatabase.reserveTransactionsTable);
+        await transaction.delete(AppDatabase.incomesTable);
+        await transaction.delete(AppDatabase.monthlyPlansTable);
 
         for (final Map<String, Object?> row in validated.recurringExpenses) {
           await transaction.insert(
@@ -432,6 +481,22 @@ class BackupService {
         for (final Map<String, Object?> row in validated.reserveTransactions) {
           await transaction.insert(
             AppDatabase.reserveTransactionsTable,
+            row,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+
+        for (final Map<String, Object?> row in validated.incomes) {
+          await transaction.insert(
+            AppDatabase.incomesTable,
+            row,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+
+        for (final Map<String, Object?> row in validated.monthlyPlans) {
+          await transaction.insert(
+            AppDatabase.monthlyPlansTable,
             row,
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
@@ -461,6 +526,8 @@ class BackupService {
         restoredAt: restoredAt,
         expenseCount: validated.expenses.length,
         recurringExpenseCount: validated.recurringExpenses.length,
+        incomeCount: validated.incomes.length,
+        monthlyPlanCount: validated.monthlyPlans.length,
       );
     } on BackupException {
       rethrow;
@@ -885,6 +952,8 @@ class BackupService {
 
     final dynamic rawRecurringExpenses = payload['recurringExpenses'];
     final dynamic rawReserveTransactions = payload['reserveTransactions'];
+    final dynamic rawIncomes = payload['incomes'];
+    final dynamic rawMonthlyPlans = payload['monthlyPlans'];
 
     final dynamic rawPreferences = payload['preferences'];
     final dynamic rawProfilePhoto = payload['profilePhoto'];
@@ -924,6 +993,25 @@ class BackupService {
       reserveTransactions = <Map<String, Object?>>[];
     }
 
+    final List<Map<String, Object?>> incomes;
+    final List<Map<String, Object?>> monthlyPlans;
+    if (formatVersion >= 4) {
+      if (rawIncomes is! List || rawMonthlyPlans is! List) {
+        throw const BackupException(
+          'As rendas ou os planejamentos mensais estão ausentes no backup.',
+        );
+      }
+      incomes = rawIncomes
+          .map<Map<String, Object?>>(_validateIncomeRow)
+          .toList(growable: false);
+      monthlyPlans = rawMonthlyPlans
+          .map<Map<String, Object?>>(_validateMonthlyPlanRow)
+          .toList(growable: false);
+    } else {
+      incomes = <Map<String, Object?>>[];
+      monthlyPlans = <Map<String, Object?>>[];
+    }
+
     final Map<String, dynamic> preferences = Map<String, dynamic>.from(
       rawPreferences,
     );
@@ -948,6 +1036,8 @@ class BackupService {
 
     final dynamic expectedRecurringCount = integrity['recurringExpenseCount'];
     final dynamic expectedReserveCount = integrity['reserveTransactionCount'];
+    final dynamic expectedIncomeCount = integrity['incomeCount'];
+    final dynamic expectedMonthlyPlanCount = integrity['monthlyPlanCount'];
 
     if (expectedExpenseCount is! num ||
         expectedExpenseCount.toInt() != expenses.length) {
@@ -968,6 +1058,22 @@ class BackupService {
             expectedReserveCount.toInt() != reserveTransactions.length)) {
       throw const BackupException(
         'A quantidade de movimentações da reserva não confere.',
+      );
+    }
+
+    if (formatVersion >= 4 &&
+        (expectedIncomeCount is! num ||
+            expectedIncomeCount.toInt() != incomes.length)) {
+      throw const BackupException(
+        'A quantidade de rendas do backup não confere.',
+      );
+    }
+
+    if (formatVersion >= 4 &&
+        (expectedMonthlyPlanCount is! num ||
+            expectedMonthlyPlanCount.toInt() != monthlyPlans.length)) {
+      throw const BackupException(
+        'A quantidade de planejamentos do backup não confere.',
       );
     }
 
@@ -1002,6 +1108,8 @@ class BackupService {
       expenses: expenses,
       recurringExpenses: recurringExpenses,
       reserveTransactions: reserveTransactions,
+      incomes: incomes,
+      monthlyPlans: monthlyPlans,
       preferences: preferences,
       profilePhoto: profilePhoto,
     );
@@ -1135,11 +1243,53 @@ class BackupService {
         'movimentação da reserva',
       ),
       'note': _optionalString(row['note']),
+      'originYearMonth': _optionalYearMonth(row['originYearMonth']),
       'createdAt': _requiredDateString(
         row,
         'createdAt',
         'movimentação da reserva',
       ),
+    };
+  }
+
+  Map<String, Object?> _validateIncomeRow(dynamic rawRow) {
+    if (rawRow is! Map) {
+      throw const BackupException('Uma renda possui formato inválido.');
+    }
+    final Map<String, dynamic> row = Map<String, dynamic>.from(rawRow);
+    final String recurrence = _requiredString(row, 'recurrence', 'renda');
+    if (!<String>{'none', 'monthly'}.contains(recurrence)) {
+      throw const BackupException('Uma renda possui recorrência inválida.');
+    }
+
+    return <String, Object?>{
+      'id': _requiredString(row, 'id', 'renda'),
+      'amountCents': _requiredPositiveInteger(row, 'amountCents', 'renda'),
+      'source': _requiredString(row, 'source', 'renda'),
+      'date': _requiredDateString(row, 'date', 'renda'),
+      'recurrence': recurrence,
+      'createdAt': _requiredDateString(row, 'createdAt', 'renda'),
+      'updatedAt': _requiredDateString(row, 'updatedAt', 'renda'),
+    };
+  }
+
+  Map<String, Object?> _validateMonthlyPlanRow(dynamic rawRow) {
+    if (rawRow is! Map) {
+      throw const BackupException(
+        'Um planejamento mensal possui formato inválido.',
+      );
+    }
+    final Map<String, dynamic> row = Map<String, dynamic>.from(rawRow);
+
+    return <String, Object?>{
+      'yearMonth': _requiredYearMonth(row, 'yearMonth', 'planejamento mensal'),
+      'spendingLimitCents': _requiredPositiveInteger(
+        row,
+        'spendingLimitCents',
+        'planejamento mensal',
+      ),
+      'createdAt': _requiredDateString(row, 'createdAt', 'planejamento mensal'),
+      'updatedAt': _requiredDateString(row, 'updatedAt', 'planejamento mensal'),
     };
   }
 
@@ -1232,6 +1382,41 @@ class BackupService {
     }
 
     return value.toInt();
+  }
+
+  int _requiredPositiveInteger(
+    Map<String, dynamic> row,
+    String key,
+    String recordLabel,
+  ) {
+    final int value = _requiredNonNegativeInteger(row, key, recordLabel);
+    if (value <= 0) {
+      throw BackupException('Uma $recordLabel possui o campo "$key" inválido.');
+    }
+    return value;
+  }
+
+  String _requiredYearMonth(
+    Map<String, dynamic> row,
+    String key,
+    String recordLabel,
+  ) {
+    final String value = _requiredString(row, key, recordLabel);
+    if (!RegExp(r'^\d{4}-(0[1-9]|1[0-2])$').hasMatch(value)) {
+      throw BackupException('Uma $recordLabel possui um mês inválido.');
+    }
+    return value;
+  }
+
+  String? _optionalYearMonth(dynamic value) {
+    final String? text = _optionalString(value)?.trim();
+    if (text == null || text.isEmpty) {
+      return null;
+    }
+    if (!RegExp(r'^\d{4}-(0[1-9]|1[0-2])$').hasMatch(text)) {
+      throw const BackupException('O backup contém um mês de origem inválido.');
+    }
+    return text;
   }
 
   String _requiredDateString(
@@ -1386,6 +1571,8 @@ class _ValidatedBackup {
     required this.expenses,
     required this.recurringExpenses,
     required this.reserveTransactions,
+    required this.incomes,
+    required this.monthlyPlans,
     required this.preferences,
     required this.profilePhoto,
   });
@@ -1397,6 +1584,10 @@ class _ValidatedBackup {
   final List<Map<String, Object?>> recurringExpenses;
 
   final List<Map<String, Object?>> reserveTransactions;
+
+  final List<Map<String, Object?>> incomes;
+
+  final List<Map<String, Object?>> monthlyPlans;
 
   final Map<String, dynamic> preferences;
 

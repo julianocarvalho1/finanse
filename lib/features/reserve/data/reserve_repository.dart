@@ -60,15 +60,24 @@ class ReserveRepository {
     );
   }
 
-  Future<ReserveTransaction> addAmount(double amount, {String? note}) async {
+  Future<ReserveTransaction> addAmount(
+    double amount, {
+    String? note,
+    String? originYearMonth,
+  }) async {
     if (amount <= 0) {
-      throw ArgumentError.value(amount, 'amount', 'Use um valor maior que zero.');
+      throw ArgumentError.value(
+        amount,
+        'amount',
+        'Use um valor maior que zero.',
+      );
     }
 
     return _insertChange(
       type: ReserveTransactionType.add,
       amount: amount,
       note: note,
+      originYearMonth: originYearMonth,
       balanceBuilder: (double currentBalance) => currentBalance + amount,
     );
   }
@@ -78,7 +87,11 @@ class ReserveRepository {
     String? note,
   }) async {
     if (amount <= 0) {
-      throw ArgumentError.value(amount, 'amount', 'Use um valor maior que zero.');
+      throw ArgumentError.value(
+        amount,
+        'amount',
+        'Use um valor maior que zero.',
+      );
     }
 
     return _insertChange(
@@ -120,6 +133,7 @@ class ReserveRepository {
     required double amount,
     required double Function(double currentBalance) balanceBuilder,
     String? note,
+    String? originYearMonth,
   }) async {
     final Database database = await _database;
 
@@ -142,6 +156,7 @@ class ReserveRepository {
         previousBalance: previousBalance,
         balanceAfter: balanceAfter,
         note: normalizedNote.isEmpty ? null : normalizedNote,
+        originYearMonth: originYearMonth,
         createdAt: now,
       );
 
@@ -153,6 +168,21 @@ class ReserveRepository {
 
       return reserveTransaction;
     });
+  }
+
+  Future<int> getAllocatedCentsForMonth(String yearMonth) async {
+    final Database database = await _database;
+    final List<Map<String, Object?>> result = await database.rawQuery(
+      '''
+      SELECT COALESCE(SUM(amount), 0) AS total
+      FROM ${AppDatabase.reserveTransactionsTable}
+      WHERE type = 'add' AND originYearMonth = ?
+      ''',
+      <Object?>[yearMonth],
+    );
+
+    final Object? value = result.firstOrNull?['total'];
+    return value is num ? (value.toDouble() * 100).round() : 0;
   }
 
   double _roundCurrency(double value) {

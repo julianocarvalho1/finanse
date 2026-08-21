@@ -20,13 +20,25 @@ class HowToUsePage extends StatelessWidget {
       ],
     ),
     _GuideItem(
+      icon: Icons.payments_outlined,
+      title: 'Cadastre suas rendas',
+      summary: 'Informe salário, extras e outras fontes manualmente.',
+      steps: <String>[
+        'Abra Perfil e toque em Rendas, ou use o atalho da tela inicial.',
+        'Escolha o mês, informe o valor, a fonte e a data.',
+        'Ative Repetir mensalmente para uma renda que se repete.',
+        'A renda é opcional e não possui conexão com bancos.',
+      ],
+    ),
+    _GuideItem(
       icon: Icons.track_changes_rounded,
       title: 'Defina o limite mensal',
       summary: 'Escolha quanto pretende gastar durante o mês.',
       steps: <String>[
-        'Abra Perfil e toque em Limite mensal.',
+        'Abra Perfil e toque em Limite mensal ou escolha o mês na área Rendas.',
         'Informe o valor planejado e toque em Salvar.',
-        'A tela inicial mostrará quanto ainda está disponível e a porcentagem usada.',
+        'O limite é independente da renda e cada mês preserva seu próprio valor.',
+        'A tela inicial mostrará renda, gastos, sobra planejada e resultado atual.',
       ],
     ),
     _GuideItem(
@@ -184,7 +196,7 @@ class HowToUsePage extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  'Defina seu limite, registre os gastos pelo botão + e acompanhe o valor disponível na tela inicial. O restante pode ser configurado aos poucos.',
+                  'Defina seu limite, registre os gastos pelo botão + e, se quiser, cadastre suas rendas. A tela inicial relaciona esses valores sem acessar sua conta bancária.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: textSecondary,
                     height: 1.4,

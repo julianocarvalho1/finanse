@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/expense_notifier.dart';
+import '../../../../core/utils/financial_plan_notifier.dart';
 import '../../../../core/utils/theme_notifier.dart';
 import '../../recurring_expenses/data/recurring_notification_scheduler.dart';
 import '../data/backup_service.dart';
@@ -210,6 +211,7 @@ class _BackupPageState extends State<BackupPage> {
 
       // Atualiza Início, Histórico e Relatórios.
       expenseNotifier.value++;
+      notifyFinancialPlanChanged();
 
       // Atualiza a cor e o modo visual restaurados.
       await _applyRestoredTheme();
@@ -243,7 +245,9 @@ class _BackupPageState extends State<BackupPage> {
       _showMessage(
         'Backup restaurado: '
         '${result.expenseCount} $expenseLabel e '
-        '${result.recurringExpenseCount} $recurringLabel.',
+        '${result.recurringExpenseCount} $recurringLabel, '
+        '${result.incomeCount} rendas e '
+        '${result.monthlyPlanCount} planejamentos.',
       );
     } on BackupException catch (error) {
       if (!mounted) {
@@ -354,6 +358,18 @@ class _BackupPageState extends State<BackupPage> {
                 context: dialogContext,
                 label: 'Recorrências',
                 value: backup.recurringExpenseCount.toString(),
+              ),
+              const SizedBox(height: 10),
+              _buildConfirmationInformation(
+                context: dialogContext,
+                label: 'Rendas',
+                value: backup.incomeCount.toString(),
+              ),
+              const SizedBox(height: 10),
+              _buildConfirmationInformation(
+                context: dialogContext,
+                label: 'Planejamentos',
+                value: backup.monthlyPlanCount.toString(),
               ),
               const SizedBox(height: 18),
               Container(

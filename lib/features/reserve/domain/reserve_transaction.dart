@@ -9,6 +9,7 @@ class ReserveTransaction {
     required this.balanceAfter,
     required this.createdAt,
     this.note,
+    this.originYearMonth,
   });
 
   final String id;
@@ -18,6 +19,7 @@ class ReserveTransaction {
   final double balanceAfter;
   final DateTime createdAt;
   final String? note;
+  final String? originYearMonth;
 
   double get signedChange => balanceAfter - previousBalance;
 
@@ -29,6 +31,7 @@ class ReserveTransaction {
       'previousBalance': previousBalance,
       'balanceAfter': balanceAfter,
       'note': note,
+      'originYearMonth': originYearMonth,
       'createdAt': createdAt.toIso8601String(),
     };
   }
@@ -44,6 +47,7 @@ class ReserveTransaction {
       previousBalance: (map['previousBalance']! as num).toDouble(),
       balanceAfter: (map['balanceAfter']! as num).toDouble(),
       note: (map['note'] as String?)?.trim(),
+      originYearMonth: (map['originYearMonth'] as String?)?.trim(),
       createdAt: DateTime.parse(map['createdAt']! as String),
     );
   }

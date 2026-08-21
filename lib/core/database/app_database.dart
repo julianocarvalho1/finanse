@@ -11,11 +11,13 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._init();
 
   static const String _databaseName = 'finanse.db';
-  static const int _databaseVersion = 5;
+  static const int _databaseVersion = 6;
 
   static const String expensesTable = 'expenses';
   static const String recurringExpensesTable = 'recurring_expenses';
   static const String reserveTransactionsTable = 'reserve_transactions';
+  static const String incomesTable = 'incomes';
+  static const String monthlyPlansTable = 'monthly_plans';
 
   static Database? _database;
 
@@ -52,6 +54,8 @@ class AppDatabase {
     await _createExpensesTable(db);
     await _createRecurringExpensesTable(db);
     await _createReserveTransactionsTable(db);
+    await _createIncomesTable(db);
+    await _createMonthlyPlansTable(db);
     await _createIndexes(db);
   }
 
@@ -111,6 +115,17 @@ class AppDatabase {
 
     if (oldVersion < 5) {
       await _createReserveTransactionsTable(db);
+    }
+
+    if (oldVersion < 6) {
+      await _addColumnWhenMissing(
+        db: db,
+        table: reserveTransactionsTable,
+        column: 'originYearMonth',
+        definition: 'TEXT',
+      );
+      await _createIncomesTable(db);
+      await _createMonthlyPlansTable(db);
     }
 
     await _createIndexes(db);
@@ -187,7 +202,6 @@ createdAt TEXT NOT NULL,
     ''');
   }
 
-
   Future<void> _createReserveTransactionsTable(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS $reserveTransactionsTable (
@@ -199,7 +213,35 @@ createdAt TEXT NOT NULL,
         previousBalance REAL NOT NULL CHECK(previousBalance >= 0),
         balanceAfter REAL NOT NULL CHECK(balanceAfter >= 0),
         note TEXT,
+        originYearMonth TEXT,
         createdAt TEXT NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _createIncomesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $incomesTable (
+        id TEXT PRIMARY KEY,
+        amountCents INTEGER NOT NULL CHECK(amountCents > 0),
+        source TEXT NOT NULL CHECK(length(trim(source)) > 0),
+        date TEXT NOT NULL,
+        recurrence TEXT NOT NULL DEFAULT 'none' CHECK(
+          recurrence IN ('none', 'monthly')
+        ),
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _createMonthlyPlansTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $monthlyPlansTable (
+        yearMonth TEXT PRIMARY KEY CHECK(length(yearMonth) = 7),
+        spendingLimitCents INTEGER NOT NULL CHECK(spendingLimitCents > 0),
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
       )
     ''');
   }
@@ -238,6 +280,21 @@ createdAt TEXT NOT NULL,
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_reserve_transactions_created_at
       ON $reserveTransactionsTable(createdAt)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_reserve_transactions_origin_month
+      ON $reserveTransactionsTable(originYearMonth)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_incomes_date
+      ON $incomesTable(date)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_incomes_recurrence
+      ON $incomesTable(recurrence)
     ''');
   }
 

@@ -29,10 +29,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
     ),
     _OnboardingItem(
       icon: Icons.track_changes_rounded,
-      title: 'Defina seu limite',
+      title: 'Planeje seu mês',
       description:
-          'Escolha quanto pretende gastar no mês. O Finanse mostra quanto ainda está disponível e avisa quando você se aproxima do limite.',
-      tip: 'Você pode alterar o limite quando precisar, sem perder os gastos.',
+          'Informe suas rendas, se quiser, e escolha um limite de gastos independente. O Finanse calcula a sobra planejada e o resultado atual.',
+      tip:
+          'As informações são manuais e você pode usar o app sem cadastrar renda.',
     ),
     _OnboardingItem(
       icon: Icons.savings_rounded,
@@ -245,26 +246,23 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   children: <Widget>[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: List<Widget>.generate(
-                        _items.length,
-                        (int index) {
-                          final bool selected = index == _currentPage;
+                      children: List<Widget>.generate(_items.length, (
+                        int index,
+                      ) {
+                        final bool selected = index == _currentPage;
 
-                          return AnimatedContainer(
-                            duration: const Duration(milliseconds: 220),
-                            curve: Curves.easeOut,
-                            width: selected ? 24 : 8,
-                            height: 8,
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? primaryColor
-                                  : borderColor,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          );
-                        },
-                      ),
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOut,
+                          width: selected ? 24 : 8,
+                          height: 8,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: selected ? primaryColor : borderColor,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        );
+                      }),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     SizedBox(
