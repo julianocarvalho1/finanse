@@ -11,7 +11,10 @@ class ThemeState {
 
 class ThemeNotifier extends ValueNotifier<ThemeState> {
   // Padrão inicial: Verde e "Acompanhar o Sistema"
-  ThemeNotifier() : super(ThemeState(color: const Color(0xFF22C55E), mode: ThemeMode.system)) {
+  ThemeNotifier()
+    : super(
+        ThemeState(color: const Color(0xFF22C55E), mode: ThemeMode.system),
+      ) {
     _loadTheme();
   }
 
@@ -34,7 +37,7 @@ class ThemeNotifier extends ValueNotifier<ThemeState> {
   Future<void> updateColor(Color newColor) async {
     value = ThemeState(color: newColor, mode: value.mode); // Atualiza só a cor
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('themeColor', newColor.value);
+    await prefs.setInt('themeColor', newColor.toARGB32());
   }
 
   Future<void> updateMode(ThemeMode newMode) async {

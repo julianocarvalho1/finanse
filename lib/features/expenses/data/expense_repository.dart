@@ -3,101 +3,348 @@ import 'package:sqflite/sqflite.dart';
 import '../../../../core/database/app_database.dart';
 import '../domain/expense.dart';
 
+/// Responsável por todas as operações relacionadas às despesas no SQLite.
+///
+/// As telas não devem acessar o banco diretamente. Toda inclusão, edição,
+/// exclusão ou consulta de despesas deve passar por este repositório.
 class ExpenseRepository {
-  final AppDatabase _appDatabase = AppDatabase.instance;
+  ExpenseRepository({AppDatabase? appDatabase, Database? database})
+    : assert(
+        appDatabase == null || database == null,
+        'Informe AppDatabase ou Database, não os dois.',
+      ),
+      _appDatabase = appDatabase ?? AppDatabase.instance,
+      _injectedDatabase = database;
 
-  // 1. Salva a despesa no banco
-  Future<void> insertExpense(Expense expense) async {
-    final db = await _appDatabase.database;
+  static const String _tableName = 'expenses';
 
-    await db.insert(
-      'expenses',
-      expense.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
+  final AppDatabase _appDatabase;
+  final Database? _injectedDatabase;
 
-  // 2. Busca apenas as despesas cadastradas no dia de hoje
-  Future<List<Expense>> getTodayExpenses() async {
-    final db = await _appDatabase.database;
+  Future<Database> get _database async {
+    final Database? injectedDatabase = _injectedDatabase;
 
-    // Pega o início e o fim do dia de hoje para filtrar
-    final now = DateTime.now();
-    final todayStart = DateTime(now.year, now.month, now.day).toIso8601String();
-    final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59).toIso8601String();
-
-    // Faz a consulta no banco de dados ordenando do mais recente para o mais antigo
-    final List<Map<String, dynamic>> maps = await db.query(
-      'expenses',
-      where: 'date >= ? AND date <= ?',
-      whereArgs: [todayStart, todayEnd],
-      orderBy: 'date DESC',
-    );
-
-    // Transforma a resposta do banco de volta na nossa classe Expense
-    return List.generate(maps.length, (i) {
-      return Expense.fromMap(maps[i]);
-    });
-  }
-
-  // 3. Calcula o valor total gasto hoje
-  Future<double> getTodayTotal() async {
-    final expenses = await getTodayExpenses();
-    double total = 0;
-
-    for (var expense in expenses) {
-      total += expense.amount;
+    if (injectedDatabase != null) {
+      return injectedDatabase;
     }
 
-    return total;
+    return _appDatabase.database;
   }
 
-  // 4. Busca TODAS as despesas cadastradas na história do app
-  Future<List<Expense>> getAllExpenses() async {
-    final db = await _appDatabase.database;
+  /// Insere uma nova despesa.
+  ///
+  /// Caso já exista uma despesa com o mesmo ID, uma exceção será lançada
+  /// em vez de substituir silenciosamente o registro existente.
+  Future<void> insertExpense(Expense expense) async {
+    final Database db = await _database;
 
-    // Busca tudo, ordenando da data mais recente para a mais antiga
-    final List<Map<String, dynamic>> maps = await db.query(
-      'expenses',
-      orderBy: 'date DESC',
+    await db.insert(
+      _tableName,
+      expense.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.abort,
+    );
+  }
+
+  /// Atualiza uma despesa existente de forma segura.
+  ///
+  /// Diferentemente da estratégia de excluir e inserir novamente, este método
+  /// mantém o registro original no banco caso a atualização falhe.
+  Future<void> updateExpense(Expense expense) async {
+    final Database db = await _database;
+
+    final int affectedRows = await db.update(
+      _tableName,
+      expense.toMap(),
+      where: 'id = ?',
+      whereArgs: <Object?>[expense.id],
+      conflictAlgorithm: ConflictAlgorithm.abort,
     );
 
-    return List.generate(maps.length, (i) {
-      return Expense.fromMap(maps[i]);
+    if (affectedRows == 0) {
+      throw StateError(
+        'Não foi possível atualizar o gasto porque ele não foi encontrado.',
+      );
+    }
+  }
+
+  /// Insere ou atualiza uma despesa dentro de uma transação.
+  ///
+  /// Este método será útil em restaurações de backup e sincronizações futuras.
+  Future<void> saveExpense(Expense expense) async {
+    final Database db = await _database;
+
+    await db.transaction((Transaction transaction) async {
+      final List<Map<String, Object?>> existingRows = await transaction.query(
+        _tableName,
+        columns: <String>['id'],
+        where: 'id = ?',
+        whereArgs: <Object?>[expense.id],
+        limit: 1,
+      );
+
+      if (existingRows.isEmpty) {
+        await transaction.insert(
+          _tableName,
+          expense.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+        return;
+      }
+
+      final int affectedRows = await transaction.update(
+        _tableName,
+        expense.toMap(),
+        where: 'id = ?',
+        whereArgs: <Object?>[expense.id],
+        conflictAlgorithm: ConflictAlgorithm.abort,
+      );
+
+      if (affectedRows == 0) {
+        throw StateError('Não foi possível salvar as alterações do gasto.');
+      }
     });
   }
 
-  // 5. Apaga uma despesa específica usando o ID dela
-  Future<void> deleteExpense(String id) async {
-    final db = await _appDatabase.database;
-    await db.delete(
-      'expenses',
+  /// Busca uma despesa específica pelo ID.
+  Future<Expense?> getExpenseById(String id) async {
+    final Database db = await _database;
+
+    final List<Map<String, Object?>> rows = await db.query(
+      _tableName,
       where: 'id = ?',
-      whereArgs: [id],
+      whereArgs: <Object?>[id],
+      limit: 1,
     );
+
+    if (rows.isEmpty) {
+      return null;
+    }
+
+    return Expense.fromMap(rows.first);
   }
 
-  // --- NOVA FUNÇÃO PARA A ETAPA 3 ---
-  // Busca os gastos e filtra pelo período escolhido
+  /// Retorna todas as despesas registradas no dia atual.
+  Future<List<Expense>> getTodayExpenses() async {
+    final DateTime now = DateTime.now();
+    final DateTime start = _startOfDay(now);
+    final DateTime end = start.add(const Duration(days: 1));
+
+    return getExpensesBetween(start: start, endExclusive: end);
+  }
+
+  /// Retorna o total gasto no dia atual.
+  Future<double> getTodayTotal() async {
+    final DateTime now = DateTime.now();
+    final DateTime start = _startOfDay(now);
+    final DateTime end = start.add(const Duration(days: 1));
+
+    return getTotalBetween(start: start, endExclusive: end);
+  }
+
+  /// Retorna todas as despesas, da mais recente para a mais antiga.
+  Future<List<Expense>> getAllExpenses() async {
+    final Database db = await _database;
+
+    final List<Map<String, Object?>> rows = await db.query(
+      _tableName,
+      orderBy: 'date DESC',
+    );
+
+    return rows
+        .map((Map<String, Object?> row) => Expense.fromMap(row))
+        .toList(growable: false);
+  }
+
+  /// Retorna despesas conforme o seletor usado na tela inicial.
+  ///
+  /// Períodos reconhecidos:
+  /// - Hoje
+  /// - Semana
+  /// - Mês
+  ///
+  /// Qualquer outro valor retorna todas as despesas.
   Future<List<Expense>> getExpensesForPeriod(String period) async {
-    final db = await _appDatabase.database; // <-- CORRIGIDO AQUI!
-    // Pega todos os gastos ordenados do mais novo para o mais velho
-    final List<Map<String, dynamic>> maps = await db.query('expenses', orderBy: 'date DESC');
+    final DateTime now = DateTime.now();
 
-    final allExpenses = maps.map((map) => Expense.fromMap(map)).toList();
-    final now = DateTime.now();
+    switch (period.trim().toLowerCase()) {
+      case 'hoje':
+        final DateTime start = _startOfDay(now);
+        final DateTime end = start.add(const Duration(days: 1));
 
-    return allExpenses.where((e) {
-      if (period == 'Hoje') {
-        return e.date.year == now.year && e.date.month == now.month && e.date.day == now.day;
-      } else if (period == 'Semana') {
-        // Últimos 7 dias
-        final weekAgo = now.subtract(const Duration(days: 7));
-        return e.date.isAfter(weekAgo) || (e.date.year == now.year && e.date.month == now.month && e.date.day == now.day);
-      } else if (period == 'Mês') {
-        return e.date.year == now.year && e.date.month == now.month;
+        return getExpensesBetween(start: start, endExclusive: end);
+
+      case 'semana':
+        // Hoje mais os seis dias anteriores.
+        final DateTime start = _startOfDay(
+          now.subtract(const Duration(days: 6)),
+        );
+
+        final DateTime end = _startOfDay(now).add(const Duration(days: 1));
+
+        return getExpensesBetween(start: start, endExclusive: end);
+
+      case 'mês':
+      case 'mes':
+        final DateTime start = DateTime(now.year, now.month);
+
+        final DateTime end = DateTime(now.year, now.month + 1);
+
+        return getExpensesBetween(start: start, endExclusive: end);
+
+      default:
+        return getAllExpenses();
+    }
+  }
+
+  /// Retorna despesas dentro de um intervalo.
+  ///
+  /// A data inicial é inclusiva e a data final é exclusiva:
+  ///
+  /// start <= data < endExclusive
+  Future<List<Expense>> getExpensesBetween({
+    required DateTime start,
+    required DateTime endExclusive,
+  }) async {
+    _validateDateRange(start: start, endExclusive: endExclusive);
+
+    final Database db = await _database;
+
+    final List<Map<String, Object?>> rows = await db.query(
+      _tableName,
+      where: 'date >= ? AND date < ?',
+      whereArgs: <Object?>[
+        start.toIso8601String(),
+        endExclusive.toIso8601String(),
+      ],
+      orderBy: 'date DESC',
+    );
+
+    return rows
+        .map((Map<String, Object?> row) => Expense.fromMap(row))
+        .toList(growable: false);
+  }
+
+  /// Calcula o total gasto dentro de um intervalo.
+  Future<double> getTotalBetween({
+    required DateTime start,
+    required DateTime endExclusive,
+  }) async {
+    _validateDateRange(start: start, endExclusive: endExclusive);
+
+    final Database db = await _database;
+
+    final List<Map<String, Object?>> result = await db.rawQuery(
+      '''
+      SELECT COALESCE(SUM(amount), 0) AS total
+      FROM $_tableName
+      WHERE date >= ? AND date < ?
+      ''',
+      <Object?>[start.toIso8601String(), endExclusive.toIso8601String()],
+    );
+
+    if (result.isEmpty) {
+      return 0;
+    }
+
+    final Object? totalValue = result.first['total'];
+
+    if (totalValue is num) {
+      return totalValue.toDouble();
+    }
+
+    return double.tryParse(totalValue?.toString() ?? '') ?? 0;
+  }
+
+  /// Exclui uma despesa pelo ID.
+  Future<void> deleteExpense(String id) async {
+    final Database db = await _database;
+
+    final int affectedRows = await db.delete(
+      _tableName,
+      where: 'id = ?',
+      whereArgs: <Object?>[id],
+    );
+
+    if (affectedRows == 0) {
+      throw StateError(
+        'Não foi possível excluir o gasto porque ele não foi encontrado.',
+      );
+    }
+  }
+
+  /// Exclui uma despesa e devolve uma cópia do registro removido.
+  ///
+  /// Será utilizado para implementar a ação "Desfazer".
+  Future<Expense> deleteExpenseAndReturn(String id) async {
+    final Database db = await _database;
+
+    return db.transaction((Transaction transaction) async {
+      final List<Map<String, Object?>> rows = await transaction.query(
+        _tableName,
+        where: 'id = ?',
+        whereArgs: <Object?>[id],
+        limit: 1,
+      );
+
+      if (rows.isEmpty) {
+        throw StateError(
+          'Não foi possível excluir o gasto porque ele não foi encontrado.',
+        );
       }
-      return true;
-    }).toList();
+
+      final Expense expense = Expense.fromMap(rows.first);
+
+      final int affectedRows = await transaction.delete(
+        _tableName,
+        where: 'id = ?',
+        whereArgs: <Object?>[id],
+      );
+
+      if (affectedRows == 0) {
+        throw StateError('Não foi possível excluir o gasto.');
+      }
+
+      return expense;
+    });
+  }
+
+  /// Verifica se já existe um gasto muito parecido registrado recentemente.
+  ///
+  /// Essa consulta será usada depois para alertar sobre possíveis duplicidades,
+  /// sem impedir o salvamento.
+  Future<bool> hasSimilarRecentExpense({
+    required double amount,
+    required String categoryName,
+    Duration interval = const Duration(minutes: 2),
+  }) async {
+    final Database db = await _database;
+    final DateTime minimumDate = DateTime.now().subtract(interval);
+
+    final List<Map<String, Object?>> rows = await db.query(
+      _tableName,
+      columns: <String>['id'],
+      where: '''
+        amount = ?
+        AND categoryName = ?
+        AND createdAt >= ?
+      ''',
+      whereArgs: <Object?>[amount, categoryName, minimumDate.toIso8601String()],
+      limit: 1,
+    );
+
+    return rows.isNotEmpty;
+  }
+
+  static DateTime _startOfDay(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  static void _validateDateRange({
+    required DateTime start,
+    required DateTime endExclusive,
+  }) {
+    if (!endExclusive.isAfter(start)) {
+      throw ArgumentError('A data final precisa ser posterior à data inicial.');
+    }
   }
 }
