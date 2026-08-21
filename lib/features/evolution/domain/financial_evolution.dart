@@ -35,16 +35,24 @@ class MonthlyEvolutionSnapshot {
 
   double? get savingsRate => summary.savingsRate;
 
+  int get totalAllocatedCents =>
+      math.max(allocatedToReserveCents, 0) + math.max(allocatedToGoalsCents, 0);
+
+  int get positiveResultCents => math.max(resultCents ?? 0, 0);
+
+  int get overallocatedCents =>
+      math.max(totalAllocatedCents - positiveResultCents, 0);
+
+  int get distributionBasisCents =>
+      math.max(positiveResultCents, totalAllocatedCents);
+
   int get availableToReserveCents {
     final int? result = resultCents;
     if (result == null || result <= 0) {
       return 0;
     }
 
-    return math.max(
-      result - allocatedToReserveCents - allocatedToGoalsCents,
-      0,
-    );
+    return math.max(result - totalAllocatedCents, 0);
   }
 
   bool isClosedAt(DateTime referenceMonth) {

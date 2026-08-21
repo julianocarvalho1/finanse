@@ -1,4 +1,5 @@
 import 'package:sqflite/sqflite.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/database/app_database.dart';
 import '../domain/reserve_transaction.dart';
@@ -10,10 +11,12 @@ class ReserveRepository {
         'Informe AppDatabase ou Database, não os dois.',
       ),
       _appDatabase = appDatabase ?? AppDatabase.instance,
-      _injectedDatabase = database;
+      _injectedDatabase = database,
+      _uuid = const Uuid();
 
   final AppDatabase _appDatabase;
   final Database? _injectedDatabase;
+  final Uuid _uuid;
 
   Future<Database> get _database async {
     return _injectedDatabase ?? _appDatabase.database;
@@ -24,7 +27,7 @@ class ReserveRepository {
 
     final List<Map<String, Object?>> rows = await database.query(
       AppDatabase.reserveTransactionsTable,
-      orderBy: 'createdAt DESC',
+      orderBy: 'createdAt DESC, rowid DESC',
     );
 
     return rows
@@ -148,7 +151,7 @@ class ReserveRepository {
       final String normalizedNote = note?.trim() ?? '';
 
       final ReserveTransaction reserveTransaction = ReserveTransaction(
-        id: now.microsecondsSinceEpoch.toString(),
+        id: _uuid.v4(),
         type: type,
         amount: type == ReserveTransactionType.adjust
             ? (balanceAfter - previousBalance).abs()
@@ -193,7 +196,7 @@ class ReserveRepository {
     final List<Map<String, Object?>> rows = await executor.query(
       AppDatabase.reserveTransactionsTable,
       columns: <String>['balanceAfter'],
-      orderBy: 'createdAt DESC',
+      orderBy: 'createdAt DESC, rowid DESC',
       limit: 1,
     );
 

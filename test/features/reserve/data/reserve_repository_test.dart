@@ -99,4 +99,17 @@ void main() {
     expect(await repository.getAllocatedCentsForMonth('2026-09'), 0);
     expect(await repository.getCurrentBalance(), 3300);
   });
+
+  test('gera identificadores únicos para movimentações imediatas', () async {
+    final List<ReserveTransaction> transactions = <ReserveTransaction>[];
+    for (int index = 0; index < 20; index++) {
+      transactions.add(await repository.addAmount(1));
+    }
+
+    expect(
+      transactions.map((ReserveTransaction item) => item.id).toSet(),
+      hasLength(20),
+    );
+    expect(await repository.getCurrentBalance(), 20);
+  });
 }

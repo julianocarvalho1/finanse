@@ -98,6 +98,22 @@ void main() {
     expect(progress.savedCents, 50000);
     expect(await repository.getTransactions(goal.id), hasLength(1));
   });
+
+  test('gera identificadores únicos para aportes imediatos', () async {
+    await repository.createGoal(_goal());
+    final List<GoalTransaction> transactions = <GoalTransaction>[];
+    for (int index = 0; index < 20; index++) {
+      transactions.add(
+        await repository.allocate(goalId: 'goal', amountCents: 100),
+      );
+    }
+
+    expect(
+      transactions.map((GoalTransaction item) => item.id).toSet(),
+      hasLength(20),
+    );
+    expect((await repository.getGoalProgress('goal'))?.savedCents, 2000);
+  });
 }
 
 SavingsGoal _goal() {

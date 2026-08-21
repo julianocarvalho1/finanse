@@ -1,4 +1,5 @@
 import 'package:sqflite/sqflite.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/database/app_database.dart';
 import '../domain/goal_progress.dart';
@@ -9,10 +10,12 @@ class GoalRepository {
   GoalRepository({AppDatabase? appDatabase, Database? database})
     : assert(appDatabase == null || database == null),
       _appDatabase = appDatabase ?? AppDatabase.instance,
-      _injectedDatabase = database;
+      _injectedDatabase = database,
+      _uuid = const Uuid();
 
   final AppDatabase _appDatabase;
   final Database? _injectedDatabase;
+  final Uuid _uuid;
 
   Future<Database> get _database async =>
       _injectedDatabase ?? _appDatabase.database;
@@ -49,7 +52,7 @@ class GoalRepository {
           SELECT t.balanceAfterCents
           FROM ${AppDatabase.goalTransactionsTable} t
           WHERE t.goalId = g.id
-          ORDER BY t.createdAt DESC, t.id DESC
+          ORDER BY t.createdAt DESC, t.rowid DESC
           LIMIT 1
         ), 0) AS savedCents
       FROM ${AppDatabase.savingsGoalsTable} g
@@ -85,7 +88,7 @@ class GoalRepository {
       AppDatabase.goalTransactionsTable,
       where: 'goalId = ?',
       whereArgs: <Object?>[goalId],
-      orderBy: 'createdAt DESC, id DESC',
+      orderBy: 'createdAt DESC, rowid DESC',
     );
     return rows
         .map<GoalTransaction>(GoalTransaction.fromMap)
@@ -189,7 +192,7 @@ class GoalRepository {
       }
       final DateTime now = DateTime.now();
       final GoalTransaction goalTransaction = GoalTransaction(
-        id: '${now.microsecondsSinceEpoch}-$goalId',
+        id: _uuid.v4(),
         goalId: goalId,
         type: type,
         changeCents: changeCents,
@@ -213,7 +216,7 @@ class GoalRepository {
       columns: <String>['balanceAfterCents'],
       where: 'goalId = ?',
       whereArgs: <Object?>[goalId],
-      orderBy: 'createdAt DESC, id DESC',
+      orderBy: 'createdAt DESC, rowid DESC',
       limit: 1,
     );
     return (rows.firstOrNull?['balanceAfterCents'] as num?)?.toInt() ?? 0;

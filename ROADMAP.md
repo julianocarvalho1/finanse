@@ -208,6 +208,7 @@ Objetivo: ajudar a pessoa a decidir para onde direcionar a sobra.
 - [x] Criar metas manuais com nome, valor-alvo e prazo opcional.
 - [x] Permitir destinar parte da sobra para uma ou várias metas.
 - [x] Mostrar progresso nominal e percentual de cada meta.
+- [x] Mostrar a distribuição mensal da sobra entre metas, reserva e valor livre.
 - [x] Criar limites opcionais por categoria.
 - [x] Avisar ao atingir faixas configuráveis do limite geral ou por categoria.
 - [x] Mostrar comparações úteis, como redução de gastos por categoria.

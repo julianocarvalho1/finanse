@@ -479,9 +479,8 @@ class _IncomesPageState extends State<IncomesPage> {
                       ),
                       title: Text(income.source),
                       subtitle: Text(dateLabel),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
                           Text(
                             _currency.format(income.amount),
@@ -489,6 +488,7 @@ class _IncomesPageState extends State<IncomesPage> {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
+                          const SizedBox(width: AppSpacing.xs),
                           PopupMenuButton<String>(
                             padding: EdgeInsets.zero,
                             tooltip: 'Opções da renda',

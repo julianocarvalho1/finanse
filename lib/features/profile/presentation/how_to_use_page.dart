@@ -116,6 +116,7 @@ class HowToUsePage extends StatelessWidget {
         'Abra Relatórios na barra inferior.',
         'Compare totais e categorias no período selecionado.',
         'Toque em Evolução mensal para alternar entre os últimos 6 e 12 meses.',
+        'Confira como o resultado do mês foi distribuído entre metas, reserva e valor ainda livre.',
         'Compare renda, gastos, resultado e taxa de economia nos gráficos.',
         'Toque em um mês para corrigir rendas, limite ou gastos antigos.',
         'Meses encerrados são recalculados quando um registro é corrigido.',

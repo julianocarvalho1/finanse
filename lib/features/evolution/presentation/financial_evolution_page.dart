@@ -15,6 +15,7 @@ import '../../incomes/presentation/incomes_page.dart';
 import '../../reserve/data/reserve_repository.dart';
 import '../data/financial_evolution_service.dart';
 import '../domain/financial_evolution.dart';
+import 'widgets/monthly_result_distribution_card.dart';
 
 class FinancialEvolutionPage extends StatefulWidget {
   const FinancialEvolutionPage({super.key});
@@ -361,6 +362,13 @@ class _FinancialEvolutionPageState extends State<FinancialEvolutionPage> {
           const SizedBox(height: AppSpacing.lg),
           _buildPeriodSummary(theme, evolution),
           const SizedBox(height: AppSpacing.lg),
+          if (evolution.hasAnyData) ...<Widget>[
+            MonthlyResultDistributionCard(
+              snapshot: newestFirst.first,
+              monthLabel: _monthName(newestFirst.first.month),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
           if (!evolution.hasAnyData)
             _EvolutionEmpty(onAddIncome: () => _openIncomes(_currentMonth))
           else ...<Widget>[

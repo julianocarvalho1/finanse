@@ -11,7 +11,8 @@ se conecta a bancos nem exige uma conta de usuário.
 - despesas recorrentes e lembretes locais;
 - planejamento mensal com limite independente da renda;
 - resumo de renda, gastos, sobra planejada e resultado atual;
-- evolução financeira dos últimos 6 ou 12 meses, com comparações e gráficos;
+- evolução financeira dos últimos 6 ou 12 meses, com comparações, gráficos e
+  distribuição da sobra entre metas, reserva e valor livre;
 - metas financeiras com progresso e histórico de aportes e retiradas;
 - limites opcionais por categoria, alertas configuráveis e comparação mensal;
 - reserva financeira com histórico de movimentações;
