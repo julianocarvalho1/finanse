@@ -9,7 +9,10 @@ import '../../profile/presentation/profile_page.dart';
 import '../../reports/presentation/reports_page.dart';
 
 class MainShell extends StatefulWidget {
-  const MainShell({super.key});
+  const MainShell({super.key, this.pages, this.onAddExpense});
+
+  final List<Widget>? pages;
+  final VoidCallback? onAddExpense;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -18,7 +21,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
-  static const List<Widget> _pages = <Widget>[
+  static const List<Widget> _defaultPages = <Widget>[
     HomePage(),
     HistoryPage(),
     ReportsPage(),
@@ -26,6 +29,11 @@ class _MainShellState extends State<MainShell> {
   ];
 
   void _openAddExpense() {
+    final VoidCallback? callback = widget.onAddExpense;
+    if (callback != null) {
+      callback();
+      return;
+    }
     AddExpenseModal.show(context);
   }
 
@@ -48,7 +56,10 @@ class _MainShellState extends State<MainShell> {
 
     return Scaffold(
       extendBody: true,
-      body: IndexedStack(index: _currentIndex, children: _pages),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: widget.pages ?? _defaultPages,
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: SizedBox.square(
         dimension: AppSpacing.floatingActionButtonSize,
@@ -132,49 +143,57 @@ class _NavigationItem extends StatelessWidget {
     final Color selectedColor = theme.colorScheme.primary;
     final Color unselectedColor = AppColors.textMuted(context);
     final Color itemColor = selected ? selectedColor : unselectedColor;
+    final bool showLabel =
+        selected || MediaQuery.textScalerOf(context).scale(1) <= 1.3;
 
     return Expanded(
       child: Semantics(
         button: true,
         selected: selected,
         label: label,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
-            child: SizedBox.expand(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    transitionBuilder:
-                        (Widget child, Animation<double> animation) {
-                          return ScaleTransition(
-                            scale: animation,
-                            child: child,
-                          );
-                        },
-                    child: Icon(
-                      selected ? selectedIcon : icon,
-                      key: ValueKey<bool>(selected),
-                      color: itemColor,
-                      size: 23,
+        child: ExcludeSemantics(
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
+              child: SizedBox.expand(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      transitionBuilder:
+                          (Widget child, Animation<double> animation) {
+                            return ScaleTransition(
+                              scale: animation,
+                              child: child,
+                            );
+                          },
+                      child: Icon(
+                        selected ? selectedIcon : icon,
+                        key: ValueKey<bool>(selected),
+                        color: itemColor,
+                        size: 23,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.fade,
-                    softWrap: false,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: itemColor,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                  ),
-                ],
+                    if (showLabel) ...<Widget>[
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.fade,
+                        softWrap: false,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: itemColor,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),

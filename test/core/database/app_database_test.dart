@@ -272,6 +272,103 @@ void main() {
       },
     );
 
+    test(
+      'migra a versão 3 preservando recorrências e adicionando dados de desfazer',
+      () async {
+        final Database oldDatabase = await databaseFactoryFfi.openDatabase(
+          databasePath,
+          options: OpenDatabaseOptions(
+            version: 3,
+            onCreate: (Database database, int version) async {
+              await _createVersion3Schema(database);
+            },
+          ),
+        );
+        final DateTime createdAt = DateTime(2026, 6, 10, 8);
+        await oldDatabase
+            .insert(AppDatabase.recurringExpensesTable, <String, Object?>{
+              'id': 'recurring-before-v4',
+              'amount': 89.90,
+              'categoryName': 'Contas',
+              'description': 'Internet',
+              'notes': 'Vencimento mensal',
+              'paymentMethod': 'Pix',
+              'frequency': 'monthly',
+              'customIntervalDays': null,
+              'nextDate': DateTime(2026, 7, 10).toIso8601String(),
+              'isActive': 1,
+              'lastRegisteredAt': null,
+              'registeredCount': 2,
+              'createdAt': createdAt.toIso8601String(),
+              'updatedAt': createdAt.toIso8601String(),
+            });
+        await oldDatabase.close();
+
+        final Database migratedDatabase = await AppDatabase.instance.database;
+        expect(await migratedDatabase.getVersion(), 7);
+
+        final Map<String, Object?> recurring = (await migratedDatabase.query(
+          AppDatabase.recurringExpensesTable,
+        )).single;
+        expect(recurring['id'], 'recurring-before-v4');
+        expect(recurring['amount'], 89.90);
+        expect(recurring['registeredCount'], 2);
+        expect(recurring['undoExpenseId'], isNull);
+        expect(recurring['undoPreviousNextDate'], isNull);
+        expect(recurring['undoPreviousLastRegisteredAt'], isNull);
+        expect(recurring['undoPreviousRegisteredCount'], isNull);
+      },
+    );
+
+    test('migra a versão 4 preservando metadados de desfazer', () async {
+      final Database oldDatabase = await databaseFactoryFfi.openDatabase(
+        databasePath,
+        options: OpenDatabaseOptions(
+          version: 4,
+          onCreate: (Database database, int version) async {
+            await _createVersion4Schema(database);
+          },
+        ),
+      );
+      final DateTime createdAt = DateTime(2026, 7, 1, 9);
+      await oldDatabase
+          .insert(AppDatabase.recurringExpensesTable, <String, Object?>{
+            'id': 'recurring-before-v5',
+            'amount': 120.0,
+            'categoryName': 'Moradia',
+            'description': 'Condomínio',
+            'notes': null,
+            'paymentMethod': null,
+            'frequency': 'monthly',
+            'customIntervalDays': null,
+            'nextDate': DateTime(2026, 8, 1).toIso8601String(),
+            'isActive': 1,
+            'lastRegisteredAt': createdAt.toIso8601String(),
+            'registeredCount': 3,
+            'undoExpenseId': 'expense-created-by-recurring',
+            'undoPreviousNextDate': DateTime(2026, 7, 1).toIso8601String(),
+            'undoPreviousLastRegisteredAt': null,
+            'undoPreviousRegisteredCount': 2,
+            'createdAt': createdAt.toIso8601String(),
+            'updatedAt': createdAt.toIso8601String(),
+          });
+      await oldDatabase.close();
+
+      final Database migratedDatabase = await AppDatabase.instance.database;
+      expect(await migratedDatabase.getVersion(), 7);
+
+      final Map<String, Object?> recurring = (await migratedDatabase.query(
+        AppDatabase.recurringExpensesTable,
+      )).single;
+      expect(recurring['id'], 'recurring-before-v5');
+      expect(recurring['undoExpenseId'], 'expense-created-by-recurring');
+      expect(recurring['undoPreviousRegisteredCount'], 2);
+      expect(
+        await migratedDatabase.query(AppDatabase.reserveTransactionsTable),
+        isEmpty,
+      );
+    });
+
     test('migra a versão 5 preservando o histórico da reserva', () async {
       final Database oldDatabase = await databaseFactoryFfi.openDatabase(
         databasePath,
@@ -408,6 +505,50 @@ void main() {
       await rolledBackDatabase.close();
     });
   });
+}
+
+Future<void> _createVersion3Schema(Database database) async {
+  await database.execute('''
+    CREATE TABLE expenses (
+      id TEXT PRIMARY KEY, amount REAL NOT NULL,
+      categoryName TEXT NOT NULL, description TEXT, notes TEXT,
+      date TEXT NOT NULL, paymentMethod TEXT,
+      isRecurring INTEGER NOT NULL DEFAULT 0,
+      recurringExpenseId TEXT, createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    )
+  ''');
+  await database.execute('''
+    CREATE TABLE recurring_expenses (
+      id TEXT PRIMARY KEY, amount REAL NOT NULL,
+      categoryName TEXT NOT NULL, description TEXT, notes TEXT,
+      paymentMethod TEXT, frequency TEXT NOT NULL,
+      customIntervalDays INTEGER, nextDate TEXT NOT NULL,
+      isActive INTEGER NOT NULL, lastRegisteredAt TEXT,
+      registeredCount INTEGER NOT NULL,
+      createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL
+    )
+  ''');
+}
+
+Future<void> _createVersion4Schema(Database database) async {
+  await _createVersion3Schema(database);
+  await database.execute('''
+    ALTER TABLE ${AppDatabase.recurringExpensesTable}
+    ADD COLUMN undoExpenseId TEXT
+  ''');
+  await database.execute('''
+    ALTER TABLE ${AppDatabase.recurringExpensesTable}
+    ADD COLUMN undoPreviousNextDate TEXT
+  ''');
+  await database.execute('''
+    ALTER TABLE ${AppDatabase.recurringExpensesTable}
+    ADD COLUMN undoPreviousLastRegisteredAt TEXT
+  ''');
+  await database.execute('''
+    ALTER TABLE ${AppDatabase.recurringExpensesTable}
+    ADD COLUMN undoPreviousRegisteredCount INTEGER
+  ''');
 }
 
 Future<void> _createVersion5Schema(

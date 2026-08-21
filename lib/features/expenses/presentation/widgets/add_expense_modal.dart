@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -11,12 +12,17 @@ import '../../data/expense_repository.dart';
 import '../../domain/expense.dart';
 
 class AddExpenseModal extends StatefulWidget {
-  const AddExpenseModal({super.key, this.expenseToEdit});
+  const AddExpenseModal({super.key, this.expenseToEdit, this.repository});
 
   final Expense? expenseToEdit;
+  final ExpenseRepository? repository;
 
-  static void show(BuildContext context, {Expense? expense}) {
-    showModalBottomSheet<void>(
+  static Future<void> show(
+    BuildContext context, {
+    Expense? expense,
+    ExpenseRepository? repository,
+  }) {
+    return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: false,
@@ -29,7 +35,10 @@ class AddExpenseModal extends StatefulWidget {
           padding: EdgeInsets.only(
             bottom: MediaQuery.viewInsetsOf(modalContext).bottom,
           ),
-          child: AddExpenseModal(expenseToEdit: expense),
+          child: AddExpenseModal(
+            expenseToEdit: expense,
+            repository: repository,
+          ),
         );
       },
     );
@@ -55,7 +64,7 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
     'Outros',
   ];
 
-  final ExpenseRepository _repository = ExpenseRepository();
+  late final ExpenseRepository _repository;
 
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
@@ -91,6 +100,8 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
   @override
   void initState() {
     super.initState();
+
+    _repository = widget.repository ?? ExpenseRepository();
 
     _currencyFormatter = NumberFormat.currency(
       locale: 'pt_BR',
@@ -289,7 +300,7 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
     final DateTime now = DateTime.now();
 
     final Expense savedExpense = Expense(
-      id: previousExpense?.id ?? now.microsecondsSinceEpoch.toString(),
+      id: previousExpense?.id ?? const Uuid().v4(),
       amount: _amount,
       categoryName: _selectedCategory.trim(),
       description: _normalizedText(_descriptionController.text),
@@ -506,6 +517,9 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
     final Color textPrimary = AppColors.textPrimary(context);
     final Color textSecondary = AppColors.textSecondary(context);
     final Color textMuted = AppColors.textMuted(context);
+    final TextScaler textScaler = MediaQuery.textScalerOf(context);
+    final double categoryListHeight =
+        94 + (textScaler.scale(12) - 12).clamp(0, 24);
 
     return Container(
       constraints: BoxConstraints(
@@ -548,13 +562,14 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    Row(
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: AppSpacing.sm,
                       children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            _isEditing ? 'Editar gasto' : 'Novo gasto',
-                            style: theme.textTheme.titleLarge,
-                          ),
+                        Text(
+                          _isEditing ? 'Editar gasto' : 'Novo gasto',
+                          style: theme.textTheme.titleLarge,
                         ),
                         TextButton.icon(
                           onPressed: _isSaving
@@ -632,7 +647,7 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     SizedBox(
-                      height: 94,
+                      height: categoryListHeight,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: _categories.length,

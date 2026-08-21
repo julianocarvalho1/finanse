@@ -25,8 +25,16 @@ void main() {
     );
   });
 
-  Widget buildGate({Duration gracePeriod = const Duration(seconds: 30)}) {
+  Widget buildGate({
+    Duration gracePeriod = const Duration(seconds: 30),
+    TextScaler textScaler = TextScaler.noScaling,
+  }) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      builder: (BuildContext context, Widget? child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+        child: child!,
+      ),
       home: PinLockGate(
         pinService: service,
         gracePeriod: gracePeriod,
@@ -122,5 +130,20 @@ void main() {
 
     expect(find.text('Conteúdo financeiro'), findsOneWidget);
     expect(find.text('Finanse bloqueado'), findsNothing);
+  });
+
+  testWidgets('tela de bloqueio aceita fonte ampliada em tela pequena', (
+    WidgetTester tester,
+  ) async {
+    await service.savePin('1234');
+    await tester.binding.setSurfaceSize(const Size(320, 568));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(buildGate(textScaler: const TextScaler.linear(2)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Finanse bloqueado'), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('pin-unlock-field')), findsOne);
+    expect(tester.takeException(), isNull);
   });
 }

@@ -57,7 +57,7 @@ abstract final class AppColors {
 
   static const Color lightTextPrimary = Color(0xFF152019);
   static const Color lightTextSecondary = Color(0xFF5F6C65);
-  static const Color lightTextMuted = Color(0xFF828E88);
+  static const Color lightTextMuted = Color(0xFF66716B);
   static const Color lightDisabled = Color(0xFFAEB8B3);
 
   static const Color lightDivider = Color(0xFFD4DCD7);
@@ -71,12 +71,12 @@ abstract final class AppColors {
 
   static const Color success = Color(0xFF24B95B);
   static const Color warning = Color(0xFFF5A524);
-  static const Color error = Color(0xFFFF6464);
+  static const Color error = Color(0xFFC62828);
   static const Color information = Color(0xFF55BCEB);
 
   static const Color successSoft = Color(0x2624B95B);
   static const Color warningSoft = Color(0x26F5A524);
-  static const Color errorSoft = Color(0x26FF6464);
+  static const Color errorSoft = Color(0x26C62828);
   static const Color informationSoft = Color(0x2655BCEB);
 
   // ---------------------------------------------------------------------------
@@ -101,7 +101,7 @@ abstract final class AppColors {
   static const Color blue = Color(0xFF55BCEB);
   static const Color pink = Color(0xFFFF7197);
   static const Color yellow = Color(0xFFF5C451);
-  static const Color red = Color(0xFFFF6464);
+  static const Color red = error;
 
   // ---------------------------------------------------------------------------
   // Utilitários

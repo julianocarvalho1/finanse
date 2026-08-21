@@ -63,16 +63,23 @@ abstract final class AppTheme {
     required Color navigationColor,
     required TextTheme textTheme,
   }) {
-    final Color foregroundOnPrimary = _foregroundFor(seedColor);
+    final Color primaryColor = _accessiblePrimary(
+      seedColor: seedColor,
+      brightness: brightness,
+      comparisonBackground: brightness == Brightness.light
+          ? backgroundColor
+          : surfaceColor,
+    );
+    final Color foregroundOnPrimary = _foregroundFor(primaryColor);
 
     final ColorScheme colorScheme =
         ColorScheme.fromSeed(
           seedColor: seedColor,
           brightness: brightness,
         ).copyWith(
-          primary: seedColor,
+          primary: primaryColor,
           onPrimary: foregroundOnPrimary,
-          secondary: seedColor,
+          secondary: primaryColor,
           onSecondary: foregroundOnPrimary,
           surface: surfaceColor,
           onSurface: textPrimaryColor,
@@ -90,7 +97,7 @@ abstract final class AppTheme {
 
     final OutlineInputBorder focusedInputBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
-      borderSide: BorderSide(color: seedColor, width: 1.6),
+      borderSide: BorderSide(color: primaryColor, width: 1.6),
     );
 
     final OutlineInputBorder errorInputBorder = OutlineInputBorder(
@@ -171,7 +178,7 @@ abstract final class AppTheme {
         ),
         labelStyle: textTheme.bodyMedium?.copyWith(color: textSecondaryColor),
         floatingLabelStyle: textTheme.bodyMedium?.copyWith(
-          color: seedColor,
+          color: primaryColor,
           fontWeight: FontWeight.w600,
         ),
         hintStyle: textTheme.bodyMedium?.copyWith(color: textMutedColor),
@@ -201,7 +208,7 @@ abstract final class AppTheme {
             horizontal: AppSpacing.lg,
             vertical: AppSpacing.md,
           ),
-          backgroundColor: seedColor,
+          backgroundColor: primaryColor,
           foregroundColor: foregroundOnPrimary,
           disabledBackgroundColor: disabledColor.withValues(alpha: 0.35),
           disabledForegroundColor: textMutedColor,
@@ -224,7 +231,7 @@ abstract final class AppTheme {
             horizontal: AppSpacing.lg,
             vertical: AppSpacing.md,
           ),
-          backgroundColor: seedColor,
+          backgroundColor: primaryColor,
           foregroundColor: foregroundOnPrimary,
           disabledBackgroundColor: disabledColor.withValues(alpha: 0.35),
           disabledForegroundColor: textMutedColor,
@@ -245,7 +252,7 @@ abstract final class AppTheme {
             horizontal: AppSpacing.lg,
             vertical: AppSpacing.md,
           ),
-          foregroundColor: seedColor,
+          foregroundColor: primaryColor,
           disabledForegroundColor: textMutedColor,
           side: BorderSide(color: borderColor),
           textStyle: textTheme.labelLarge,
@@ -265,7 +272,7 @@ abstract final class AppTheme {
             AppSpacing.minimumTouchSize,
           ),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          foregroundColor: seedColor,
+          foregroundColor: primaryColor,
           disabledForegroundColor: textMutedColor,
           textStyle: textTheme.labelLarge,
           shape: RoundedRectangleBorder(
@@ -292,7 +299,7 @@ abstract final class AppTheme {
       // Botão flutuante
       // -----------------------------------------------------------------------
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: seedColor,
+        backgroundColor: primaryColor,
         foregroundColor: foregroundOnPrimary,
         elevation: 3,
         focusElevation: 4,
@@ -305,10 +312,10 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: navigationColor,
-        selectedItemColor: seedColor,
+        selectedItemColor: primaryColor,
         unselectedItemColor: textMutedColor,
         selectedLabelStyle: textTheme.labelSmall?.copyWith(
-          color: seedColor,
+          color: primaryColor,
           fontWeight: FontWeight.w700,
         ),
         unselectedLabelStyle: textTheme.labelSmall?.copyWith(
@@ -328,7 +335,7 @@ abstract final class AppTheme {
         backgroundColor: navigationColor,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        indicatorColor: seedColor.withValues(alpha: 0.16),
+        indicatorColor: primaryColor.withValues(alpha: 0.16),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         iconTheme: WidgetStateProperty.resolveWith<IconThemeData>((
           Set<WidgetState> states,
@@ -336,7 +343,7 @@ abstract final class AppTheme {
           final bool selected = states.contains(WidgetState.selected);
 
           return IconThemeData(
-            color: selected ? seedColor : textMutedColor,
+            color: selected ? primaryColor : textMutedColor,
             size: 24,
           );
         }),
@@ -346,7 +353,7 @@ abstract final class AppTheme {
           final bool selected = states.contains(WidgetState.selected);
 
           return textTheme.labelSmall!.copyWith(
-            color: selected ? seedColor : textMutedColor,
+            color: selected ? primaryColor : textMutedColor,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
           );
         }),
@@ -358,7 +365,7 @@ abstract final class AppTheme {
       listTileTheme: ListTileThemeData(
         iconColor: textSecondaryColor,
         textColor: textPrimaryColor,
-        selectedColor: seedColor,
+        selectedColor: primaryColor,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
           vertical: AppSpacing.xxs,
@@ -383,7 +390,7 @@ abstract final class AppTheme {
       // -----------------------------------------------------------------------
       chipTheme: ChipThemeData(
         backgroundColor: surfaceSecondaryColor,
-        selectedColor: seedColor.withValues(alpha: 0.16),
+        selectedColor: primaryColor.withValues(alpha: 0.16),
         disabledColor: disabledColor.withValues(alpha: 0.20),
         side: BorderSide(color: borderColor),
         shape: RoundedRectangleBorder(
@@ -391,7 +398,7 @@ abstract final class AppTheme {
         ),
         labelStyle: textTheme.labelMedium!.copyWith(color: textSecondaryColor),
         secondaryLabelStyle: textTheme.labelMedium!.copyWith(
-          color: seedColor,
+          color: primaryColor,
           fontWeight: FontWeight.w700,
         ),
         padding: const EdgeInsets.symmetric(
@@ -413,7 +420,7 @@ abstract final class AppTheme {
           }
 
           if (states.contains(WidgetState.selected)) {
-            return seedColor;
+            return primaryColor;
           }
 
           return Colors.transparent;
@@ -447,7 +454,7 @@ abstract final class AppTheme {
           }
 
           if (states.contains(WidgetState.selected)) {
-            return seedColor;
+            return primaryColor;
           }
 
           return surfaceSecondaryColor;
@@ -456,7 +463,7 @@ abstract final class AppTheme {
           Set<WidgetState> states,
         ) {
           if (states.contains(WidgetState.selected)) {
-            return seedColor;
+            return primaryColor;
           }
 
           return borderColor;
@@ -467,7 +474,7 @@ abstract final class AppTheme {
       // Indicadores de carregamento e progresso
       // -----------------------------------------------------------------------
       progressIndicatorTheme: ProgressIndicatorThemeData(
-        color: seedColor,
+        color: primaryColor,
         linearTrackColor: surfaceSecondaryColor,
         circularTrackColor: surfaceSecondaryColor,
       ),
@@ -518,7 +525,7 @@ abstract final class AppTheme {
           color: Colors.white,
           fontWeight: FontWeight.w500,
         ),
-        actionTextColor: seedColor,
+        actionTextColor: primaryColor,
         closeIconColor: Colors.white,
         elevation: 5,
         insetPadding: const EdgeInsets.only(
@@ -552,8 +559,42 @@ abstract final class AppTheme {
 
   /// Escolhe automaticamente uma cor legível sobre a cor principal.
   static Color _foregroundFor(Color backgroundColor) {
-    return backgroundColor.computeLuminance() > 0.48
-        ? const Color(0xFF101512)
+    final double whiteContrast = _contrastRatio(Colors.white, backgroundColor);
+    final double blackContrast = _contrastRatio(Colors.black, backgroundColor);
+    return blackContrast >= whiteContrast ? Colors.black : Colors.white;
+  }
+
+  static Color _accessiblePrimary({
+    required Color seedColor,
+    required Brightness brightness,
+    required Color comparisonBackground,
+  }) {
+    const double minimumContrast = 4.5;
+    if (_contrastRatio(seedColor, comparisonBackground) >= minimumContrast) {
+      return seedColor;
+    }
+
+    final Color target = brightness == Brightness.light
+        ? Colors.black
         : Colors.white;
+    for (int step = 1; step <= 100; step++) {
+      final Color candidate = Color.lerp(seedColor, target, step / 100)!;
+      if (_contrastRatio(candidate, comparisonBackground) >= minimumContrast) {
+        return candidate;
+      }
+    }
+    return target;
+  }
+
+  static double _contrastRatio(Color first, Color second) {
+    final double firstLuminance = first.computeLuminance();
+    final double secondLuminance = second.computeLuminance();
+    final double lighter = firstLuminance > secondLuminance
+        ? firstLuminance
+        : secondLuminance;
+    final double darker = firstLuminance > secondLuminance
+        ? secondLuminance
+        : firstLuminance;
+    return (lighter + 0.05) / (darker + 0.05);
   }
 }
