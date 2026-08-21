@@ -11,7 +11,9 @@ import 'package:finanse/features/expenses/domain/expense.dart';
 import 'package:finanse/features/expenses/presentation/widgets/add_expense_modal.dart';
 
 class HistoryPage extends StatefulWidget {
-  const HistoryPage({super.key});
+  const HistoryPage({super.key, this.initialMonth});
+
+  final DateTime? initialMonth;
 
   @override
   State<HistoryPage> createState() => _HistoryPageState();
@@ -52,6 +54,16 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   void initState() {
     super.initState();
+
+    final DateTime? initialMonth = widget.initialMonth;
+    if (initialMonth != null) {
+      final DateTime start = DateTime(initialMonth.year, initialMonth.month);
+      _selectedPeriod = 'Personalizado';
+      _customDateRange = DateTimeRange(
+        start: start,
+        end: DateTime(start.year, start.month + 1, 0),
+      );
+    }
 
     _currencyFormatter = NumberFormat.currency(
       locale: 'pt_BR',

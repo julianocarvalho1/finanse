@@ -173,32 +173,32 @@ Objetivo: mostrar o que a pessoa conseguiu preservar ao longo do tempo.
 
 ### Histórico
 
-- [ ] Criar resumo de cada mês com renda, limite, gastos e resultado final.
-- [ ] Exibir comparação com o mês anterior.
-- [ ] Criar gráfico dos últimos 6 e 12 meses com:
+- [x] Criar resumo de cada mês com renda, limite, gastos e resultado final.
+- [x] Exibir comparação com o mês anterior.
+- [x] Criar gráfico dos últimos 6 e 12 meses com:
   - renda;
   - gastos;
   - resultado;
   - taxa de economia.
-- [ ] Mostrar resultado acumulado no período selecionado.
-- [ ] Destacar melhor mês, pior mês e média mensal sem linguagem punitiva.
-- [ ] Permitir consultar e corrigir meses anteriores.
+- [x] Mostrar resultado acumulado no período selecionado.
+- [x] Destacar melhor mês, pior mês e média mensal sem linguagem punitiva.
+- [x] Permitir consultar e corrigir meses anteriores.
 
 ### Fechamento mensal
 
-- [ ] Tratar o mês encerrado como histórico, mas permitir correções manuais.
-- [ ] Recalcular automaticamente o histórico após uma correção retroativa.
-- [ ] Sugerir o novo planejamento usando o limite anterior, sem alterá-lo sem
+- [x] Tratar o mês encerrado como histórico, mas permitir correções manuais.
+- [x] Recalcular automaticamente o histórico após uma correção retroativa.
+- [x] Sugerir o novo planejamento usando o limite anterior, sem alterá-lo sem
   autorização.
-- [ ] Oferecer a destinação do resultado positivo para a reserva.
+- [x] Oferecer a destinação do resultado positivo para a reserva.
 
 ### Critério de conclusão
 
-- [ ] O histórico permanece correto após mudança de mês e reinicialização do
+- [x] O histórico permanece correto após mudança de mês e reinicialização do
   aplicativo.
-- [ ] Um resultado negativo é mostrado corretamente nos cartões e gráficos.
-- [ ] Correções retroativas não duplicam renda, despesa ou reserva.
-- [ ] Gráficos possuem rótulos e alternativa textual acessível.
+- [x] Um resultado negativo é mostrado corretamente nos cartões e gráficos.
+- [x] Correções retroativas não duplicam renda, despesa ou reserva.
+- [x] Gráficos possuem rótulos e alternativa textual acessível.
 
 ---
 

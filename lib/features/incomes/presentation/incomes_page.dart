@@ -13,7 +13,9 @@ import '../data/income_repository.dart';
 import '../domain/income.dart';
 
 class IncomesPage extends StatefulWidget {
-  const IncomesPage({super.key});
+  const IncomesPage({super.key, this.initialMonth});
+
+  final DateTime? initialMonth;
 
   @override
   State<IncomesPage> createState() => _IncomesPageState();
@@ -27,9 +29,10 @@ class _IncomesPageState extends State<IncomesPage> {
     symbol: 'R\$',
   );
 
-  DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
+  late DateTime _selectedMonth;
   List<Income> _incomes = <Income>[];
   MonthlyPlan? _plan;
+  MonthlyPlan? _previousPlanSuggestion;
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -41,6 +44,8 @@ class _IncomesPageState extends State<IncomesPage> {
   @override
   void initState() {
     super.initState();
+    final DateTime initialMonth = widget.initialMonth ?? DateTime.now();
+    _selectedMonth = DateTime(initialMonth.year, initialMonth.month);
     _loadIncomes();
   }
 
@@ -59,10 +64,16 @@ class _IncomesPageState extends State<IncomesPage> {
       final MonthlyPlan? plan = await _planRepository.getPlanForMonth(
         _selectedMonth,
       );
+      final MonthlyPlan? previousPlan = plan == null
+          ? await _planRepository.getPlanForMonth(
+              DateTime(_selectedMonth.year, _selectedMonth.month - 1),
+            )
+          : null;
       if (!mounted) return;
       setState(() {
         _incomes = incomes;
         _plan = plan;
+        _previousPlanSuggestion = previousPlan;
         _isLoading = false;
       });
     } catch (_) {
@@ -228,6 +239,27 @@ class _IncomesPageState extends State<IncomesPage> {
     await _loadIncomes();
   }
 
+  Future<void> _applyPreviousLimit() async {
+    final MonthlyPlan? suggestion = _previousPlanSuggestion;
+    if (suggestion == null) {
+      return;
+    }
+
+    await _planRepository.saveLimit(
+      month: _selectedMonth,
+      spendingLimitCents: suggestion.spendingLimitCents,
+    );
+    notifyFinancialPlanChanged();
+    await _loadIncomes();
+
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Limite anterior aplicado a este mês.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -333,6 +365,27 @@ class _IncomesPageState extends State<IncomesPage> {
                 ),
               ),
             ),
+            if (_plan == null && _previousPlanSuggestion != null) ...<Widget>[
+              const SizedBox(height: AppSpacing.sm),
+              Card(
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(AppSpacing.md),
+                  leading: CircleAvatar(
+                    backgroundColor: AppColors.informationSoft,
+                    foregroundColor: AppColors.information,
+                    child: const Icon(Icons.lightbulb_outline_rounded),
+                  ),
+                  title: const Text('Usar o limite do mês anterior?'),
+                  subtitle: Text(
+                    '${_currency.format(_previousPlanSuggestion!.spendingLimit)} como ponto de partida. Nada será alterado sem sua confirmação.',
+                  ),
+                  trailing: TextButton(
+                    onPressed: _applyPreviousLimit,
+                    child: const Text('Usar'),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: AppSpacing.xl),
             Text('Fontes de renda', style: theme.textTheme.titleMedium),
             const SizedBox(height: AppSpacing.md),
