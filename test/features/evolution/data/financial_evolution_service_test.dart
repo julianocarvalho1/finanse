@@ -5,6 +5,8 @@ import 'package:finanse/features/expenses/data/expense_repository.dart';
 import 'package:finanse/features/expenses/domain/expense.dart';
 import 'package:finanse/features/incomes/data/income_repository.dart';
 import 'package:finanse/features/incomes/domain/income.dart';
+import 'package:finanse/features/goals/data/goal_repository.dart';
+import 'package:finanse/features/goals/domain/savings_goal.dart';
 import 'package:finanse/features/planning/data/monthly_plan_repository.dart';
 import 'package:finanse/features/reserve/data/reserve_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +20,7 @@ void main() {
   late MonthlyPlanRepository planRepository;
   late ExpenseRepository expenseRepository;
   late ReserveRepository reserveRepository;
+  late GoalRepository goalRepository;
   late FinancialEvolutionService service;
 
   setUpAll(sqfliteFfiInit);
@@ -29,11 +32,13 @@ void main() {
     planRepository = MonthlyPlanRepository(database: database);
     expenseRepository = ExpenseRepository(database: database);
     reserveRepository = ReserveRepository(database: database);
+    goalRepository = GoalRepository(database: database);
     service = FinancialEvolutionService(
       incomeRepository: incomeRepository,
       planRepository: planRepository,
       expenseRepository: expenseRepository,
       reserveRepository: reserveRepository,
+      goalRepository: goalRepository,
     );
   });
 
@@ -107,12 +112,28 @@ void main() {
     expect(evolution.months.single.resultCents, 250000);
   });
 
-  test('considera somente a reserva vinculada ao mês', () async {
+  test('considera reserva e metas vinculadas ao mês', () async {
     await incomeRepository.insertIncome(
       _income(id: 'income', cents: 500000, date: DateTime(2026, 8, 1)),
     );
     await reserveRepository.addAmount(1000, originYearMonth: '2026-08');
     await reserveRepository.addAmount(500, originYearMonth: '2026-07');
+    final DateTime createdAt = DateTime(2026, 8, 1);
+    await goalRepository.createGoal(
+      SavingsGoal(
+        id: 'goal',
+        name: 'Curso',
+        targetCents: 200000,
+        status: SavingsGoalStatus.active,
+        createdAt: createdAt,
+        updatedAt: createdAt,
+      ),
+    );
+    await goalRepository.allocate(
+      goalId: 'goal',
+      amountCents: 50000,
+      originYearMonth: '2026-08',
+    );
 
     final FinancialEvolution evolution = await service.load(
       referenceMonth: DateTime(2026, 8),
@@ -120,7 +141,8 @@ void main() {
     );
 
     expect(evolution.months.single.allocatedToReserveCents, 100000);
-    expect(evolution.months.single.availableToReserveCents, 400000);
+    expect(evolution.months.single.allocatedToGoalsCents, 50000);
+    expect(evolution.months.single.availableToReserveCents, 350000);
   });
 }
 
@@ -187,6 +209,7 @@ Future<void> _createTables(Database database) async {
     CREATE TABLE ${AppDatabase.monthlyPlansTable} (
       yearMonth TEXT PRIMARY KEY,
       spendingLimitCents INTEGER NOT NULL,
+      warningPercent INTEGER NOT NULL DEFAULT 70,
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL
     )
@@ -200,6 +223,30 @@ Future<void> _createTables(Database database) async {
       balanceAfter REAL NOT NULL,
       note TEXT,
       originYearMonth TEXT,
+      createdAt TEXT NOT NULL
+    )
+  ''');
+  await database.execute('''
+    CREATE TABLE ${AppDatabase.savingsGoalsTable} (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      targetCents INTEGER NOT NULL,
+      deadline TEXT,
+      status TEXT NOT NULL,
+      completedAt TEXT,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    )
+  ''');
+  await database.execute('''
+    CREATE TABLE ${AppDatabase.goalTransactionsTable} (
+      id TEXT PRIMARY KEY,
+      goalId TEXT NOT NULL,
+      type TEXT NOT NULL,
+      changeCents INTEGER NOT NULL,
+      balanceAfterCents INTEGER NOT NULL,
+      originYearMonth TEXT,
+      note TEXT,
       createdAt TEXT NOT NULL
     )
   ''');

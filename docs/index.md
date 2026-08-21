@@ -25,7 +25,9 @@ Dependendo dos recursos utilizados, o aplicativo pode tratar localmente:
 - valores, descrições, categorias, datas, observações e formas de pagamento de
   despesas;
 - fontes e valores de renda, datas e recorrência mensal opcional;
-- despesas recorrentes, limites mensais e movimentações da reserva;
+- despesas recorrentes, limites mensais e por categoria;
+- metas financeiras e históricos de aportes, retiradas e movimentações da
+  reserva;
 - nome de exibição e foto de perfil opcionais;
 - tema, notificações e outras preferências do aplicativo;
 - PIN de acesso, quando ativado pelo usuário.

@@ -18,6 +18,7 @@ void main() {
       CREATE TABLE ${AppDatabase.monthlyPlansTable} (
         yearMonth TEXT PRIMARY KEY,
         spendingLimitCents INTEGER NOT NULL,
+        warningPercent INTEGER NOT NULL DEFAULT 70,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL
       )
@@ -44,6 +45,27 @@ void main() {
     expect(
       (await repository.getPlanForMonth(DateTime(2026, 9)))?.spendingLimitCents,
       180000,
+    );
+  });
+
+  test('preserva o alerta configurado e rejeita percentual inválido', () async {
+    await repository.saveLimit(
+      month: DateTime(2026, 8),
+      spendingLimitCents: 200000,
+      warningPercent: 80,
+    );
+
+    expect(
+      (await repository.getPlanForMonth(DateTime(2026, 8)))?.warningPercent,
+      80,
+    );
+    await expectLater(
+      repository.saveLimit(
+        month: DateTime(2026, 9),
+        spendingLimitCents: 200000,
+        warningPercent: 40,
+      ),
+      throwsArgumentError,
     );
   });
 

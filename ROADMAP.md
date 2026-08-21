@@ -152,8 +152,7 @@ Objetivo: apresentar a relação entre renda, limite de gastos e sobra esperada.
 - [x] Oferecer `Destinar para a reserva` a partir do resultado positivo.
 - [x] Impedir que a destinação seja contabilizada como despesa.
 - [x] Registrar o mês de origem da destinação.
-- [x] Impedir destinação superior ao resultado disponível, salvo confirmação
-  explícita do usuário.
+- [x] Impedir destinação superior ao resultado disponível.
 
 ### Critério de conclusão
 
@@ -206,19 +205,19 @@ Objetivo: mostrar o que a pessoa conseguiu preservar ao longo do tempo.
 
 Objetivo: ajudar a pessoa a decidir para onde direcionar a sobra.
 
-- [ ] Criar metas manuais com nome, valor-alvo e prazo opcional.
-- [ ] Permitir destinar parte da sobra para uma ou várias metas.
-- [ ] Mostrar progresso nominal e percentual de cada meta.
-- [ ] Criar limites opcionais por categoria.
-- [ ] Avisar ao atingir faixas configuráveis do limite geral ou por categoria.
-- [ ] Mostrar comparações úteis, como redução de gastos por categoria.
-- [ ] Evitar recomendações financeiras personalizadas ou promessas de resultado.
+- [x] Criar metas manuais com nome, valor-alvo e prazo opcional.
+- [x] Permitir destinar parte da sobra para uma ou várias metas.
+- [x] Mostrar progresso nominal e percentual de cada meta.
+- [x] Criar limites opcionais por categoria.
+- [x] Avisar ao atingir faixas configuráveis do limite geral ou por categoria.
+- [x] Mostrar comparações úteis, como redução de gastos por categoria.
+- [x] Evitar recomendações financeiras personalizadas ou promessas de resultado.
 
 ### Critério de conclusão
 
-- [ ] A soma destinada às metas e à reserva é rastreável e não altera os gastos.
-- [ ] Metas podem ser pausadas, editadas e concluídas sem perder o histórico.
-- [ ] Limites por categoria não substituem nem contradizem o limite geral.
+- [x] A soma destinada às metas e à reserva é rastreável e não altera os gastos.
+- [x] Metas podem ser pausadas, editadas e concluídas sem perder o histórico.
+- [x] Limites por categoria não substituem nem contradizem o limite geral.
 
 ---
 
@@ -254,4 +253,4 @@ Uma tarefa só pode ser marcada como concluída quando:
 2. Entregar a Fase 1 como o primeiro MVP da evolução financeira.
 3. Validar os cálculos e a compreensão dos textos em teste interno.
 4. Entregar a Fase 2 com histórico e gráficos.
-5. Avaliar o uso antes de iniciar metas e limites por categoria.
+5. Validar metas e limites por categoria em teste interno antes da publicação.

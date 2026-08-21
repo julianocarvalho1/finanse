@@ -12,6 +12,8 @@ se conecta a bancos nem exige uma conta de usuário.
 - planejamento mensal com limite independente da renda;
 - resumo de renda, gastos, sobra planejada e resultado atual;
 - evolução financeira dos últimos 6 ou 12 meses, com comparações e gráficos;
+- metas financeiras com progresso e histórico de aportes e retiradas;
+- limites opcionais por categoria, alertas configuráveis e comparação mensal;
 - reserva financeira com histórico de movimentações;
 - relatórios e exportações em PDF, Excel e CSV;
 - backup e restauração manual;

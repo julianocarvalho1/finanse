@@ -66,6 +66,29 @@ class HowToUsePage extends StatelessWidget {
       ],
     ),
     _GuideItem(
+      icon: Icons.flag_outlined,
+      title: 'Crie metas financeiras',
+      summary: 'Direcione a sobra do mês para objetivos escolhidos por você.',
+      steps: <String>[
+        'Abra Perfil e toque em Metas financeiras.',
+        'Informe o nome, o valor desejado e, se quiser, um prazo.',
+        'Use Destinar na meta ou o atalho da tela inicial para registrar um aporte.',
+        'O aporte reduz apenas a sobra ainda disponível e não entra como gasto.',
+        'Você pode editar, pausar, reativar ou concluir a meta sem perder o histórico.',
+      ],
+    ),
+    _GuideItem(
+      icon: Icons.category_outlined,
+      title: 'Defina limites por categoria',
+      summary: 'Acompanhe áreas específicas dentro do seu limite geral.',
+      steps: <String>[
+        'Abra Perfil e toque em Limites por categoria.',
+        'Escolha o mês, a categoria, o valor e a faixa em que deseja ser avisado.',
+        'A soma das categorias não pode ultrapassar o limite geral do mês.',
+        'Compare cada categoria com o mês anterior para entender sua evolução.',
+      ],
+    ),
+    _GuideItem(
       icon: Icons.history_rounded,
       title: 'Consulte e corrija registros',
       summary: 'Encontre gastos antigos no Histórico.',

@@ -2,6 +2,7 @@ import '../../expenses/data/expense_repository.dart';
 import '../../incomes/data/income_repository.dart';
 import '../../planning/data/monthly_plan_repository.dart';
 import '../../reserve/data/reserve_repository.dart';
+import '../../goals/data/goal_repository.dart';
 import '../domain/financial_evolution.dart';
 
 class FinancialEvolutionService {
@@ -10,15 +11,18 @@ class FinancialEvolutionService {
     MonthlyPlanRepository? planRepository,
     ExpenseRepository? expenseRepository,
     ReserveRepository? reserveRepository,
+    GoalRepository? goalRepository,
   }) : _incomeRepository = incomeRepository ?? IncomeRepository(),
        _planRepository = planRepository ?? MonthlyPlanRepository(),
        _expenseRepository = expenseRepository ?? ExpenseRepository(),
-       _reserveRepository = reserveRepository ?? ReserveRepository();
+       _reserveRepository = reserveRepository ?? ReserveRepository(),
+       _goalRepository = goalRepository ?? GoalRepository();
 
   final IncomeRepository _incomeRepository;
   final MonthlyPlanRepository _planRepository;
   final ExpenseRepository _expenseRepository;
   final ReserveRepository _reserveRepository;
+  final GoalRepository _goalRepository;
 
   Future<FinancialEvolution> load({
     required DateTime referenceMonth,
@@ -58,6 +62,10 @@ class FinancialEvolutionService {
       allocatedToReserveCents = await _reserveRepository.getAllocatedCentsForMonth(
         '${month.year.toString().padLeft(4, '0')}-${month.month.toString().padLeft(2, '0')}',
       );
+      final int
+      allocatedToGoalsCents = await _goalRepository.getAllocatedCentsForMonth(
+        '${month.year.toString().padLeft(4, '0')}-${month.month.toString().padLeft(2, '0')}',
+      );
 
       snapshots.add(
         MonthlyEvolutionSnapshot(
@@ -65,7 +73,9 @@ class FinancialEvolutionService {
           incomeCents: incomeCents,
           spentCents: (spent * 100).round(),
           spendingLimitCents: plan?.spendingLimitCents,
+          warningPercent: plan?.warningPercent ?? 70,
           allocatedToReserveCents: allocatedToReserveCents,
+          allocatedToGoalsCents: allocatedToGoalsCents,
         ),
       );
     }

@@ -34,6 +34,7 @@ class MonthlyPlanRepository {
   Future<MonthlyPlan> saveLimit({
     required DateTime month,
     required int spendingLimitCents,
+    int? warningPercent,
   }) async {
     if (spendingLimitCents <= 0) {
       throw ArgumentError.value(
@@ -45,10 +46,30 @@ class MonthlyPlanRepository {
 
     final Database database = await _database;
     final MonthlyPlan? existing = await getPlanForMonth(month);
+    final int normalizedWarningPercent =
+        warningPercent ?? existing?.warningPercent ?? 70;
+    if (normalizedWarningPercent < 50 || normalizedWarningPercent > 100) {
+      throw ArgumentError.value(
+        normalizedWarningPercent,
+        'warningPercent',
+        'Use um alerta entre 50% e 100%.',
+      );
+    }
+
+    final int categoryLimitTotal = await _categoryLimitTotal(
+      database,
+      MonthlyPlan.keyFor(month),
+    );
+    if (categoryLimitTotal > spendingLimitCents) {
+      throw StateError(
+        'O limite geral não pode ser menor que a soma dos limites por categoria.',
+      );
+    }
     final DateTime now = DateTime.now();
     final MonthlyPlan plan = MonthlyPlan(
       yearMonth: MonthlyPlan.keyFor(month),
       spendingLimitCents: spendingLimitCents,
+      warningPercent: normalizedWarningPercent,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     );
@@ -59,6 +80,25 @@ class MonthlyPlanRepository {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
     return plan;
+  }
+
+  Future<int> _categoryLimitTotal(Database database, String yearMonth) async {
+    try {
+      final List<Map<String, Object?>> rows = await database.rawQuery(
+        '''
+        SELECT COALESCE(SUM(limitCents), 0) AS total
+        FROM ${AppDatabase.categoryLimitsTable}
+        WHERE yearMonth = ?
+        ''',
+        <Object?>[yearMonth],
+      );
+      return (rows.firstOrNull?['total'] as num?)?.toInt() ?? 0;
+    } on DatabaseException catch (error) {
+      if (error.toString().contains('no such table')) {
+        return 0;
+      }
+      rethrow;
+    }
   }
 
   Future<void> deletePlanForMonth(DateTime month) async {

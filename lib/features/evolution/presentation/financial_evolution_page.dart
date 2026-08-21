@@ -24,8 +24,6 @@ class FinancialEvolutionPage extends StatefulWidget {
 }
 
 class _FinancialEvolutionPageState extends State<FinancialEvolutionPage> {
-  static const int _maximumAmountInCents = 99999999999;
-
   final FinancialEvolutionService _service = FinancialEvolutionService();
   final ReserveRepository _reserveRepository = ReserveRepository();
   final NumberFormat _currency = NumberFormat.currency(
@@ -226,9 +224,11 @@ class _FinancialEvolutionPageState extends State<FinancialEvolutionPage> {
                     controller.text.replaceAll(RegExp(r'[^0-9]'), ''),
                   ) ??
                   0;
-              if (value <= 0) {
+              if (value <= 0 || value > snapshot.availableToReserveCents) {
                 setDialogState(() {
-                  errorMessage = 'Digite um valor maior que zero.';
+                  errorMessage = value > snapshot.availableToReserveCents
+                      ? 'O valor ultrapassa o resultado disponível.'
+                      : 'Digite um valor maior que zero.';
                 });
                 return;
               }
@@ -251,7 +251,7 @@ class _FinancialEvolutionPageState extends State<FinancialEvolutionPage> {
                     keyboardType: TextInputType.number,
                     inputFormatters: <TextInputFormatter>[
                       CurrencyInputFormatter(
-                        maximumValueInCents: _maximumAmountInCents,
+                        maximumValueInCents: snapshot.availableToReserveCents,
                       ),
                     ],
                     decoration: InputDecoration(
@@ -284,39 +284,6 @@ class _FinancialEvolutionPageState extends State<FinancialEvolutionPage> {
 
     if (cents == null || !mounted) {
       return;
-    }
-
-    if (cents > snapshot.availableToReserveCents) {
-      final bool confirmed =
-          await showDialog<bool>(
-            context: context,
-            builder: (BuildContext dialogContext) {
-              return AlertDialog(
-                icon: const Icon(
-                  Icons.warning_amber_rounded,
-                  color: AppColors.warning,
-                ),
-                title: const Text('Valor acima do resultado disponível'),
-                content: Text(
-                  'O valor ainda disponível é ${_currency.format(snapshot.availableToReserveCents / 100)}. Deseja registrar mesmo assim?',
-                ),
-                actions: <Widget>[
-                  TextButton(
-                    onPressed: () => Navigator.pop(dialogContext, false),
-                    child: const Text('Voltar'),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(dialogContext, true),
-                    child: const Text('Registrar mesmo assim'),
-                  ),
-                ],
-              );
-            },
-          ) ??
-          false;
-      if (!confirmed) {
-        return;
-      }
     }
 
     try {
@@ -978,6 +945,15 @@ class _FinancialEvolutionPageState extends State<FinancialEvolutionPage> {
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   '${_currency.format(snapshot.allocatedToReserveCents / 100)} destinado à reserva neste mês.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textMuted(context),
+                  ),
+                ),
+              ],
+              if (snapshot.allocatedToGoalsCents > 0) ...<Widget>[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  '${_currency.format(snapshot.allocatedToGoalsCents / 100)} destinado às metas neste mês.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: AppColors.textMuted(context),
                   ),
