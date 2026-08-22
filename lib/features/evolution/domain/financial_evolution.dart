@@ -9,7 +9,9 @@ class MonthlyEvolutionSnapshot {
     required this.incomeCents,
     required this.spentCents,
     required this.allocatedToReserveCents,
+    this.allocatedToGoalsCents = 0,
     this.spendingLimitCents,
+    this.warningPercent = 70,
   }) : month = DateTime(month.year, month.month);
 
   final DateTime month;
@@ -17,6 +19,8 @@ class MonthlyEvolutionSnapshot {
   final int spentCents;
   final int? spendingLimitCents;
   final int allocatedToReserveCents;
+  final int allocatedToGoalsCents;
+  final int warningPercent;
 
   String get yearMonth => MonthlyPlan.keyFor(month);
 
@@ -24,11 +28,23 @@ class MonthlyEvolutionSnapshot {
     incomeTotalCents: incomeCents,
     spentCents: spentCents,
     spendingLimitCents: spendingLimitCents,
+    warningPercent: warningPercent,
   );
 
   int? get resultCents => summary.currentResultCents;
 
   double? get savingsRate => summary.savingsRate;
+
+  int get totalAllocatedCents =>
+      math.max(allocatedToReserveCents, 0) + math.max(allocatedToGoalsCents, 0);
+
+  int get positiveResultCents => math.max(resultCents ?? 0, 0);
+
+  int get overallocatedCents =>
+      math.max(totalAllocatedCents - positiveResultCents, 0);
+
+  int get distributionBasisCents =>
+      math.max(positiveResultCents, totalAllocatedCents);
 
   int get availableToReserveCents {
     final int? result = resultCents;
@@ -36,7 +52,7 @@ class MonthlyEvolutionSnapshot {
       return 0;
     }
 
-    return math.max(result - allocatedToReserveCents, 0);
+    return math.max(result - totalAllocatedCents, 0);
   }
 
   bool isClosedAt(DateTime referenceMonth) {
@@ -100,7 +116,8 @@ class FinancialEvolution {
         month.incomeCents > 0 ||
         month.spentCents > 0 ||
         (month.spendingLimitCents ?? 0) > 0 ||
-        month.allocatedToReserveCents > 0,
+        month.allocatedToReserveCents > 0 ||
+        month.allocatedToGoalsCents > 0,
   );
 
   int get totalIncomeCents => months.fold<int>(

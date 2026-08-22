@@ -52,4 +52,15 @@ void main() {
     expect(summary.plannedSurplusCents, isNull);
     expect(summary.status, MonthlyFinancialStatus.neutral);
   });
+
+  test('respeita o percentual de alerta configurado', () {
+    const MonthlyFinancialSummary summary = MonthlyFinancialSummary(
+      incomeTotalCents: 500000,
+      spentCents: 150000,
+      spendingLimitCents: 200000,
+      warningPercent: 80,
+    );
+
+    expect(summary.status, MonthlyFinancialStatus.positive);
+  });
 }

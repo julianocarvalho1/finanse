@@ -20,6 +20,10 @@ class CreatedBackup {
     required this.recurringExpenseCount,
     this.incomeCount = 0,
     this.monthlyPlanCount = 0,
+    this.reserveTransactionCount = 0,
+    this.goalCount = 0,
+    this.goalTransactionCount = 0,
+    this.categoryLimitCount = 0,
   });
 
   final File file;
@@ -28,6 +32,10 @@ class CreatedBackup {
   final int recurringExpenseCount;
   final int incomeCount;
   final int monthlyPlanCount;
+  final int reserveTransactionCount;
+  final int goalCount;
+  final int goalTransactionCount;
+  final int categoryLimitCount;
 
   String get fileName {
     return path.basename(file.path);
@@ -36,8 +44,12 @@ class CreatedBackup {
   int get totalRecordCount {
     return expenseCount +
         recurringExpenseCount +
+        reserveTransactionCount +
         incomeCount +
-        monthlyPlanCount;
+        monthlyPlanCount +
+        goalCount +
+        goalTransactionCount +
+        categoryLimitCount;
   }
 }
 
@@ -51,6 +63,10 @@ class SelectedBackup {
     required this.document,
     this.incomeCount = 0,
     this.monthlyPlanCount = 0,
+    this.reserveTransactionCount = 0,
+    this.goalCount = 0,
+    this.goalTransactionCount = 0,
+    this.categoryLimitCount = 0,
   });
 
   final file_selector.XFile file;
@@ -59,6 +75,10 @@ class SelectedBackup {
   final int recurringExpenseCount;
   final int incomeCount;
   final int monthlyPlanCount;
+  final int reserveTransactionCount;
+  final int goalCount;
+  final int goalTransactionCount;
+  final int categoryLimitCount;
 
   /// Documento completo mantido em memória para a restauração.
   final Map<String, dynamic> document;
@@ -74,8 +94,12 @@ class SelectedBackup {
   int get totalRecordCount {
     return expenseCount +
         recurringExpenseCount +
+        reserveTransactionCount +
         incomeCount +
-        monthlyPlanCount;
+        monthlyPlanCount +
+        goalCount +
+        goalTransactionCount +
+        categoryLimitCount;
   }
 }
 
@@ -87,6 +111,10 @@ class BackupRestoreResult {
     required this.recurringExpenseCount,
     this.incomeCount = 0,
     this.monthlyPlanCount = 0,
+    this.reserveTransactionCount = 0,
+    this.goalCount = 0,
+    this.goalTransactionCount = 0,
+    this.categoryLimitCount = 0,
   });
 
   final DateTime restoredAt;
@@ -94,12 +122,20 @@ class BackupRestoreResult {
   final int recurringExpenseCount;
   final int incomeCount;
   final int monthlyPlanCount;
+  final int reserveTransactionCount;
+  final int goalCount;
+  final int goalTransactionCount;
+  final int categoryLimitCount;
 
   int get totalRecordCount {
     return expenseCount +
         recurringExpenseCount +
+        reserveTransactionCount +
         incomeCount +
-        monthlyPlanCount;
+        monthlyPlanCount +
+        goalCount +
+        goalTransactionCount +
+        categoryLimitCount;
   }
 }
 
@@ -152,11 +188,11 @@ class BackupService {
 
   static const String _signature = 'FINANSE_BACKUP';
 
-  static const int _backupFormatVersion = 4;
+  static const int _backupFormatVersion = 5;
 
-  static const Set<int> _supportedBackupFormatVersions = <int>{1, 2, 3, 4};
+  static const Set<int> _supportedBackupFormatVersions = <int>{1, 2, 3, 4, 5};
 
-  static const int _databaseVersion = 6;
+  static const int _databaseVersion = 7;
   static const int _maxProfilePhotoBytes = 8 * 1024 * 1024;
 
   static const Set<String> _supportedProfilePhotoExtensions = <String>{
@@ -216,6 +252,21 @@ class BackupService {
         orderBy: 'yearMonth ASC',
       );
 
+      final List<Map<String, Object?>> savingsGoals = await database.query(
+        AppDatabase.savingsGoalsTable,
+        orderBy: 'createdAt ASC',
+      );
+
+      final List<Map<String, Object?>> goalTransactions = await database.query(
+        AppDatabase.goalTransactionsTable,
+        orderBy: 'createdAt ASC',
+      );
+
+      final List<Map<String, Object?>> categoryLimits = await database.query(
+        AppDatabase.categoryLimitsTable,
+        orderBy: 'yearMonth ASC, categoryName ASC',
+      );
+
       final SharedPreferences preferences =
           await SharedPreferences.getInstance();
 
@@ -249,6 +300,21 @@ class BackupService {
               return Map<String, Object?>.from(row);
             })
             .toList(growable: false),
+        'savingsGoals': savingsGoals
+            .map<Map<String, Object?>>((Map<String, Object?> row) {
+              return Map<String, Object?>.from(row);
+            })
+            .toList(growable: false),
+        'goalTransactions': goalTransactions
+            .map<Map<String, Object?>>((Map<String, Object?> row) {
+              return Map<String, Object?>.from(row);
+            })
+            .toList(growable: false),
+        'categoryLimits': categoryLimits
+            .map<Map<String, Object?>>((Map<String, Object?> row) {
+              return Map<String, Object?>.from(row);
+            })
+            .toList(growable: false),
         'preferences': _encodePreferences(preferences),
         'profilePhoto': profilePhoto,
       };
@@ -270,6 +336,9 @@ class BackupService {
           'reserveTransactionCount': reserveTransactions.length,
           'incomeCount': incomes.length,
           'monthlyPlanCount': monthlyPlans.length,
+          'savingsGoalCount': savingsGoals.length,
+          'goalTransactionCount': goalTransactions.length,
+          'categoryLimitCount': categoryLimits.length,
         },
         'payload': payload,
       };
@@ -327,6 +396,10 @@ class BackupService {
         recurringExpenseCount: recurringExpenses.length,
         incomeCount: incomes.length,
         monthlyPlanCount: monthlyPlans.length,
+        reserveTransactionCount: reserveTransactions.length,
+        goalCount: savingsGoals.length,
+        goalTransactionCount: goalTransactions.length,
+        categoryLimitCount: categoryLimits.length,
       );
     } on BackupException {
       rethrow;
@@ -425,6 +498,10 @@ class BackupService {
         recurringExpenseCount: validated.recurringExpenses.length,
         incomeCount: validated.incomes.length,
         monthlyPlanCount: validated.monthlyPlans.length,
+        reserveTransactionCount: validated.reserveTransactions.length,
+        goalCount: validated.savingsGoals.length,
+        goalTransactionCount: validated.goalTransactions.length,
+        categoryLimitCount: validated.categoryLimits.length,
         document: document,
       );
     } on BackupException {
@@ -455,6 +532,9 @@ class BackupService {
       final Database database = await _database;
 
       await database.transaction<void>((Transaction transaction) async {
+        await transaction.delete(AppDatabase.goalTransactionsTable);
+        await transaction.delete(AppDatabase.savingsGoalsTable);
+        await transaction.delete(AppDatabase.categoryLimitsTable);
         await transaction.delete(AppDatabase.expensesTable);
 
         await transaction.delete(AppDatabase.recurringExpensesTable);
@@ -501,6 +581,30 @@ class BackupService {
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
+
+        for (final Map<String, Object?> row in validated.savingsGoals) {
+          await transaction.insert(
+            AppDatabase.savingsGoalsTable,
+            row,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+
+        for (final Map<String, Object?> row in validated.goalTransactions) {
+          await transaction.insert(
+            AppDatabase.goalTransactionsTable,
+            row,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+
+        for (final Map<String, Object?> row in validated.categoryLimits) {
+          await transaction.insert(
+            AppDatabase.categoryLimitsTable,
+            row,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
       });
 
       final SharedPreferences preferences =
@@ -528,6 +632,10 @@ class BackupService {
         recurringExpenseCount: validated.recurringExpenses.length,
         incomeCount: validated.incomes.length,
         monthlyPlanCount: validated.monthlyPlans.length,
+        reserveTransactionCount: validated.reserveTransactions.length,
+        goalCount: validated.savingsGoals.length,
+        goalTransactionCount: validated.goalTransactions.length,
+        categoryLimitCount: validated.categoryLimits.length,
       );
     } on BackupException {
       rethrow;
@@ -954,6 +1062,9 @@ class BackupService {
     final dynamic rawReserveTransactions = payload['reserveTransactions'];
     final dynamic rawIncomes = payload['incomes'];
     final dynamic rawMonthlyPlans = payload['monthlyPlans'];
+    final dynamic rawSavingsGoals = payload['savingsGoals'];
+    final dynamic rawGoalTransactions = payload['goalTransactions'];
+    final dynamic rawCategoryLimits = payload['categoryLimits'];
 
     final dynamic rawPreferences = payload['preferences'];
     final dynamic rawProfilePhoto = payload['profilePhoto'];
@@ -1005,11 +1116,42 @@ class BackupService {
           .map<Map<String, Object?>>(_validateIncomeRow)
           .toList(growable: false);
       monthlyPlans = rawMonthlyPlans
-          .map<Map<String, Object?>>(_validateMonthlyPlanRow)
+          .map<Map<String, Object?>>((dynamic row) {
+            return _validateMonthlyPlanRow(
+              row,
+              requiresWarningPercent: formatVersion >= 5,
+            );
+          })
           .toList(growable: false);
     } else {
       incomes = <Map<String, Object?>>[];
       monthlyPlans = <Map<String, Object?>>[];
+    }
+
+    final List<Map<String, Object?>> savingsGoals;
+    final List<Map<String, Object?>> goalTransactions;
+    final List<Map<String, Object?>> categoryLimits;
+    if (formatVersion >= 5) {
+      if (rawSavingsGoals is! List ||
+          rawGoalTransactions is! List ||
+          rawCategoryLimits is! List) {
+        throw const BackupException(
+          'As metas ou os limites por categoria estão ausentes no backup.',
+        );
+      }
+      savingsGoals = rawSavingsGoals
+          .map<Map<String, Object?>>(_validateSavingsGoalRow)
+          .toList(growable: false);
+      goalTransactions = rawGoalTransactions
+          .map<Map<String, Object?>>(_validateGoalTransactionRow)
+          .toList(growable: false);
+      categoryLimits = rawCategoryLimits
+          .map<Map<String, Object?>>(_validateCategoryLimitRow)
+          .toList(growable: false);
+    } else {
+      savingsGoals = <Map<String, Object?>>[];
+      goalTransactions = <Map<String, Object?>>[];
+      categoryLimits = <Map<String, Object?>>[];
     }
 
     final Map<String, dynamic> preferences = Map<String, dynamic>.from(
@@ -1038,6 +1180,10 @@ class BackupService {
     final dynamic expectedReserveCount = integrity['reserveTransactionCount'];
     final dynamic expectedIncomeCount = integrity['incomeCount'];
     final dynamic expectedMonthlyPlanCount = integrity['monthlyPlanCount'];
+    final dynamic expectedSavingsGoalCount = integrity['savingsGoalCount'];
+    final dynamic expectedGoalTransactionCount =
+        integrity['goalTransactionCount'];
+    final dynamic expectedCategoryLimitCount = integrity['categoryLimitCount'];
 
     if (expectedExpenseCount is! num ||
         expectedExpenseCount.toInt() != expenses.length) {
@@ -1066,6 +1212,30 @@ class BackupService {
             expectedIncomeCount.toInt() != incomes.length)) {
       throw const BackupException(
         'A quantidade de rendas do backup não confere.',
+      );
+    }
+
+    if (formatVersion >= 5 &&
+        (expectedSavingsGoalCount is! num ||
+            expectedSavingsGoalCount.toInt() != savingsGoals.length)) {
+      throw const BackupException(
+        'A quantidade de metas do backup não confere.',
+      );
+    }
+
+    if (formatVersion >= 5 &&
+        (expectedGoalTransactionCount is! num ||
+            expectedGoalTransactionCount.toInt() != goalTransactions.length)) {
+      throw const BackupException(
+        'A quantidade de movimentações das metas não confere.',
+      );
+    }
+
+    if (formatVersion >= 5 &&
+        (expectedCategoryLimitCount is! num ||
+            expectedCategoryLimitCount.toInt() != categoryLimits.length)) {
+      throw const BackupException(
+        'A quantidade de limites por categoria não confere.',
       );
     }
 
@@ -1110,6 +1280,9 @@ class BackupService {
       reserveTransactions: reserveTransactions,
       incomes: incomes,
       monthlyPlans: monthlyPlans,
+      savingsGoals: savingsGoals,
+      goalTransactions: goalTransactions,
+      categoryLimits: categoryLimits,
       preferences: preferences,
       profilePhoto: profilePhoto,
     );
@@ -1273,13 +1446,25 @@ class BackupService {
     };
   }
 
-  Map<String, Object?> _validateMonthlyPlanRow(dynamic rawRow) {
+  Map<String, Object?> _validateMonthlyPlanRow(
+    dynamic rawRow, {
+    required bool requiresWarningPercent,
+  }) {
     if (rawRow is! Map) {
       throw const BackupException(
         'Um planejamento mensal possui formato inválido.',
       );
     }
     final Map<String, dynamic> row = Map<String, dynamic>.from(rawRow);
+    final int warningPercent = requiresWarningPercent
+        ? _requiredIntegerInRange(
+            row,
+            'warningPercent',
+            'planejamento mensal',
+            minimum: 50,
+            maximum: 100,
+          )
+        : 70;
 
     return <String, Object?>{
       'yearMonth': _requiredYearMonth(row, 'yearMonth', 'planejamento mensal'),
@@ -1288,8 +1473,115 @@ class BackupService {
         'spendingLimitCents',
         'planejamento mensal',
       ),
+      'warningPercent': warningPercent,
       'createdAt': _requiredDateString(row, 'createdAt', 'planejamento mensal'),
       'updatedAt': _requiredDateString(row, 'updatedAt', 'planejamento mensal'),
+    };
+  }
+
+  Map<String, Object?> _validateSavingsGoalRow(dynamic rawRow) {
+    if (rawRow is! Map) {
+      throw const BackupException('Uma meta possui formato inválido.');
+    }
+    final Map<String, dynamic> row = Map<String, dynamic>.from(rawRow);
+    final String status = _requiredString(row, 'status', 'meta');
+    if (!<String>{'active', 'paused', 'completed'}.contains(status)) {
+      throw const BackupException('Uma meta possui situação inválida.');
+    }
+
+    return <String, Object?>{
+      'id': _requiredString(row, 'id', 'meta'),
+      'name': _requiredString(row, 'name', 'meta'),
+      'targetCents': _requiredPositiveInteger(row, 'targetCents', 'meta'),
+      'deadline': _optionalDateString(row['deadline']),
+      'status': status,
+      'completedAt': _optionalDateString(row['completedAt']),
+      'createdAt': _requiredDateString(row, 'createdAt', 'meta'),
+      'updatedAt': _requiredDateString(row, 'updatedAt', 'meta'),
+    };
+  }
+
+  Map<String, Object?> _validateGoalTransactionRow(dynamic rawRow) {
+    if (rawRow is! Map) {
+      throw const BackupException(
+        'Uma movimentação de meta possui formato inválido.',
+      );
+    }
+    final Map<String, dynamic> row = Map<String, dynamic>.from(rawRow);
+    final String type = _requiredString(row, 'type', 'movimentação de meta');
+    if (!<String>{'allocation', 'withdrawal', 'adjustment'}.contains(type)) {
+      throw const BackupException(
+        'Uma movimentação de meta possui tipo inválido.',
+      );
+    }
+    final int changeCents = _requiredNonZeroInteger(
+      row,
+      'changeCents',
+      'movimentação de meta',
+    );
+    if ((type == 'allocation' && changeCents < 0) ||
+        (type == 'withdrawal' && changeCents > 0)) {
+      throw const BackupException(
+        'Uma movimentação de meta possui valor incompatível com o tipo.',
+      );
+    }
+
+    return <String, Object?>{
+      'id': _requiredString(row, 'id', 'movimentação de meta'),
+      'goalId': _requiredString(row, 'goalId', 'movimentação de meta'),
+      'type': type,
+      'changeCents': changeCents,
+      'balanceAfterCents': _requiredNonNegativeInteger(
+        row,
+        'balanceAfterCents',
+        'movimentação de meta',
+      ),
+      'originYearMonth': _optionalYearMonth(row['originYearMonth']),
+      'note': _optionalString(row['note']),
+      'createdAt': _requiredDateString(
+        row,
+        'createdAt',
+        'movimentação de meta',
+      ),
+    };
+  }
+
+  Map<String, Object?> _validateCategoryLimitRow(dynamic rawRow) {
+    if (rawRow is! Map) {
+      throw const BackupException(
+        'Um limite por categoria possui formato inválido.',
+      );
+    }
+    final Map<String, dynamic> row = Map<String, dynamic>.from(rawRow);
+    return <String, Object?>{
+      'yearMonth': _requiredYearMonth(row, 'yearMonth', 'limite por categoria'),
+      'categoryName': _requiredString(
+        row,
+        'categoryName',
+        'limite por categoria',
+      ),
+      'limitCents': _requiredPositiveInteger(
+        row,
+        'limitCents',
+        'limite por categoria',
+      ),
+      'warningPercent': _requiredIntegerInRange(
+        row,
+        'warningPercent',
+        'limite por categoria',
+        minimum: 50,
+        maximum: 100,
+      ),
+      'createdAt': _requiredDateString(
+        row,
+        'createdAt',
+        'limite por categoria',
+      ),
+      'updatedAt': _requiredDateString(
+        row,
+        'updatedAt',
+        'limite por categoria',
+      ),
     };
   }
 
@@ -1391,6 +1683,36 @@ class BackupService {
   ) {
     final int value = _requiredNonNegativeInteger(row, key, recordLabel);
     if (value <= 0) {
+      throw BackupException('Uma $recordLabel possui o campo "$key" inválido.');
+    }
+    return value;
+  }
+
+  int _requiredNonZeroInteger(
+    Map<String, dynamic> row,
+    String key,
+    String recordLabel,
+  ) {
+    final dynamic value = row[key];
+    if (value is! num || !value.isFinite || value.toInt() == 0) {
+      throw BackupException('Uma $recordLabel possui o campo "$key" inválido.');
+    }
+    return value.toInt();
+  }
+
+  int _requiredIntegerInRange(
+    Map<String, dynamic> row,
+    String key,
+    String recordLabel, {
+    required int minimum,
+    required int maximum,
+  }) {
+    final dynamic rawValue = row[key];
+    if (rawValue is! num || !rawValue.isFinite) {
+      throw BackupException('Uma $recordLabel possui o campo "$key" inválido.');
+    }
+    final int value = rawValue.toInt();
+    if (value < minimum || value > maximum) {
       throw BackupException('Uma $recordLabel possui o campo "$key" inválido.');
     }
     return value;
@@ -1573,6 +1895,9 @@ class _ValidatedBackup {
     required this.reserveTransactions,
     required this.incomes,
     required this.monthlyPlans,
+    required this.savingsGoals,
+    required this.goalTransactions,
+    required this.categoryLimits,
     required this.preferences,
     required this.profilePhoto,
   });
@@ -1588,6 +1913,12 @@ class _ValidatedBackup {
   final List<Map<String, Object?>> incomes;
 
   final List<Map<String, Object?>> monthlyPlans;
+
+  final List<Map<String, Object?>> savingsGoals;
+
+  final List<Map<String, Object?>> goalTransactions;
+
+  final List<Map<String, Object?>> categoryLimits;
 
   final Map<String, dynamic> preferences;
 

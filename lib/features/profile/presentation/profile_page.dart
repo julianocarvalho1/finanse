@@ -15,6 +15,8 @@ import 'package:finanse/core/utils/financial_plan_notifier.dart';
 import 'package:finanse/core/utils/theme_notifier.dart';
 import 'package:finanse/features/planning/data/monthly_plan_repository.dart';
 import 'package:finanse/features/incomes/presentation/incomes_page.dart';
+import 'package:finanse/features/goals/presentation/goals_page.dart';
+import 'package:finanse/features/category_limits/presentation/category_limits_page.dart';
 import 'package:finanse/features/recurring_expenses/data/recurring_notification_scheduler.dart';
 import 'package:finanse/features/recurring_expenses/presentation/recurring_expenses_page.dart';
 import 'package:finanse/features/profile/presentation/backup_page.dart';
@@ -34,6 +36,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final MonthlyPlanRepository _monthlyPlanRepository = MonthlyPlanRepository();
   double? _monthlyLimit;
+  int _monthlyWarningPercent = 70;
   String _userName = '';
   String _profilePhotoPath = '';
 
@@ -110,6 +113,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     setState(() {
       _monthlyLimit = monthlyPlan?.spendingLimit;
+      _monthlyWarningPercent = monthlyPlan?.warningPercent ?? 70;
       _userName = savedUserName;
       _profilePhotoPath = savedProfilePhotoPath;
       _hasPin = hasPin;
@@ -417,6 +421,20 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _openGoals() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const GoalsPage()));
+    if (mounted) await _loadPreferences();
+  }
+
+  Future<void> _openCategoryLimits() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const CategoryLimitsPage()));
+    if (mounted) await _loadPreferences();
+  }
+
   void _openExport() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -452,6 +470,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _editMonthlyLimit() async {
     String inputValue = _monthlyLimit?.toStringAsFixed(0) ?? '';
     String? errorMessage;
+    int warningPercent = _monthlyWarningPercent;
 
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -467,7 +486,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
     final Color primaryColor = Theme.of(context).colorScheme.primary;
 
-    final double? newValue = await showDialog<double>(
+    final ({double value, int warningPercent})?
+    result = await showDialog<({double value, int warningPercent})>(
       context: context,
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
@@ -492,7 +512,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 return;
               }
 
-              Navigator.of(dialogContext).pop(value);
+              Navigator.of(
+                dialogContext,
+              ).pop((value: value, warningPercent: warningPercent));
             }
 
             return AlertDialog(
@@ -559,13 +581,35 @@ class _ProfilePageState extends State<ProfilePage> {
                       submitValue();
                     },
                   ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<int>(
+                    initialValue: warningPercent,
+                    decoration: const InputDecoration(
+                      labelText: 'Avisar a partir de',
+                    ),
+                    items: const <int>[50, 60, 70, 80, 90, 100]
+                        .map(
+                          (int value) => DropdownMenuItem<int>(
+                            value: value,
+                            child: Text('$value% do limite'),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (int? value) {
+                      if (value != null) {
+                        setDialogState(() => warningPercent = value);
+                      }
+                    },
+                  ),
                 ],
               ),
               actions: <Widget>[
                 if (_monthlyLimit != null)
                   TextButton(
                     onPressed: () {
-                      Navigator.of(dialogContext).pop(0);
+                      Navigator.of(
+                        dialogContext,
+                      ).pop((value: 0.0, warningPercent: warningPercent));
                     },
                     child: const Text('Remover limite'),
                   ),
@@ -599,17 +643,33 @@ class _ProfilePageState extends State<ProfilePage> {
       },
     );
 
-    if (newValue == null) {
+    if (result == null) {
       return;
     }
+    final double newValue = result.value;
 
-    if (newValue == 0) {
-      await _monthlyPlanRepository.deletePlanForMonth(DateTime.now());
-    } else {
-      await _monthlyPlanRepository.saveLimit(
-        month: DateTime.now(),
-        spendingLimitCents: (newValue * 100).round(),
-      );
+    try {
+      if (newValue == 0) {
+        await _monthlyPlanRepository.deletePlanForMonth(DateTime.now());
+      } else {
+        await _monthlyPlanRepository.saveLimit(
+          month: DateTime.now(),
+          spendingLimitCents: (newValue * 100).round(),
+          warningPercent: result.warningPercent,
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        _showProfileMessage(
+          error is StateError || error is ArgumentError
+              ? error.toString().replaceFirst(
+                  RegExp(r'^(Bad state|Invalid argument): '),
+                  '',
+                )
+              : 'Não foi possível salvar o limite.',
+        );
+      }
+      return;
     }
 
     if (!mounted) {
@@ -618,6 +678,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     setState(() {
       _monthlyLimit = newValue == 0 ? null : newValue;
+      _monthlyWarningPercent = result.warningPercent;
     });
 
     notifyFinancialPlanChanged();
@@ -1103,6 +1164,22 @@ class _ProfilePageState extends State<ProfilePage> {
                   : 'Atual: ${currencyFormatter.format(_monthlyLimit!)}',
               iconColor: primaryColor,
               onTap: _editMonthlyLimit,
+            ),
+            Divider(height: 1, color: dividerColor, indent: 20, endIndent: 20),
+            _buildListTile(
+              icon: Icons.flag_outlined,
+              title: 'Metas Financeiras',
+              subtitle: 'Acompanhe objetivos e valores destinados',
+              iconColor: primaryColor,
+              onTap: _openGoals,
+            ),
+            Divider(height: 1, color: dividerColor, indent: 20, endIndent: 20),
+            _buildListTile(
+              icon: Icons.category_outlined,
+              title: 'Limites por Categoria',
+              subtitle: 'Alertas e comparação com o mês anterior',
+              iconColor: primaryColor,
+              onTap: _openCategoryLimits,
             ),
             Divider(height: 1, color: dividerColor, indent: 20, endIndent: 20),
             _buildListTile(

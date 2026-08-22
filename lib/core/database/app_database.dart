@@ -11,13 +11,16 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._init();
 
   static const String _databaseName = 'finanse.db';
-  static const int _databaseVersion = 6;
+  static const int _databaseVersion = 7;
 
   static const String expensesTable = 'expenses';
   static const String recurringExpensesTable = 'recurring_expenses';
   static const String reserveTransactionsTable = 'reserve_transactions';
   static const String incomesTable = 'incomes';
   static const String monthlyPlansTable = 'monthly_plans';
+  static const String savingsGoalsTable = 'savings_goals';
+  static const String goalTransactionsTable = 'goal_transactions';
+  static const String categoryLimitsTable = 'category_limits';
 
   static Database? _database;
 
@@ -56,6 +59,9 @@ class AppDatabase {
     await _createReserveTransactionsTable(db);
     await _createIncomesTable(db);
     await _createMonthlyPlansTable(db);
+    await _createSavingsGoalsTable(db);
+    await _createGoalTransactionsTable(db);
+    await _createCategoryLimitsTable(db);
     await _createIndexes(db);
   }
 
@@ -126,6 +132,18 @@ class AppDatabase {
       );
       await _createIncomesTable(db);
       await _createMonthlyPlansTable(db);
+    }
+
+    if (oldVersion < 7) {
+      await _addColumnWhenMissing(
+        db: db,
+        table: monthlyPlansTable,
+        column: 'warningPercent',
+        definition: 'INTEGER NOT NULL DEFAULT 70',
+      );
+      await _createSavingsGoalsTable(db);
+      await _createGoalTransactionsTable(db);
+      await _createCategoryLimitsTable(db);
     }
 
     await _createIndexes(db);
@@ -240,8 +258,63 @@ createdAt TEXT NOT NULL,
       CREATE TABLE IF NOT EXISTS $monthlyPlansTable (
         yearMonth TEXT PRIMARY KEY CHECK(length(yearMonth) = 7),
         spendingLimitCents INTEGER NOT NULL CHECK(spendingLimitCents > 0),
+        warningPercent INTEGER NOT NULL DEFAULT 70 CHECK(
+          warningPercent >= 50 AND warningPercent <= 100
+        ),
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _createSavingsGoalsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $savingsGoalsTable (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+        targetCents INTEGER NOT NULL CHECK(targetCents > 0),
+        deadline TEXT,
+        status TEXT NOT NULL DEFAULT 'active' CHECK(
+          status IN ('active', 'paused', 'completed')
+        ),
+        completedAt TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _createGoalTransactionsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $goalTransactionsTable (
+        id TEXT PRIMARY KEY,
+        goalId TEXT NOT NULL,
+        type TEXT NOT NULL CHECK(
+          type IN ('allocation', 'withdrawal', 'adjustment')
+        ),
+        changeCents INTEGER NOT NULL CHECK(changeCents != 0),
+        balanceAfterCents INTEGER NOT NULL CHECK(balanceAfterCents >= 0),
+        originYearMonth TEXT,
+        note TEXT,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY(goalId) REFERENCES $savingsGoalsTable(id)
+          ON DELETE RESTRICT
+      )
+    ''');
+  }
+
+  Future<void> _createCategoryLimitsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $categoryLimitsTable (
+        yearMonth TEXT NOT NULL CHECK(length(yearMonth) = 7),
+        categoryName TEXT NOT NULL CHECK(length(trim(categoryName)) > 0),
+        limitCents INTEGER NOT NULL CHECK(limitCents > 0),
+        warningPercent INTEGER NOT NULL DEFAULT 70 CHECK(
+          warningPercent >= 50 AND warningPercent <= 100
+        ),
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        PRIMARY KEY(yearMonth, categoryName)
       )
     ''');
   }
@@ -295,6 +368,26 @@ createdAt TEXT NOT NULL,
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_incomes_recurrence
       ON $incomesTable(recurrence)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_savings_goals_status
+      ON $savingsGoalsTable(status)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_goal_transactions_goal
+      ON $goalTransactionsTable(goalId, createdAt)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_goal_transactions_origin_month
+      ON $goalTransactionsTable(originYearMonth)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_category_limits_month
+      ON $categoryLimitsTable(yearMonth)
     ''');
   }
 

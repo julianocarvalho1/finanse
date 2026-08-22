@@ -13,6 +13,13 @@ import 'package:finanse/features/expenses/domain/expense.dart';
 import 'package:finanse/features/expenses/presentation/widgets/add_expense_modal.dart';
 import 'package:finanse/features/incomes/data/income_repository.dart';
 import 'package:finanse/features/incomes/presentation/incomes_page.dart';
+import 'package:finanse/features/goals/data/goal_repository.dart';
+import 'package:finanse/features/goals/domain/goal_progress.dart';
+import 'package:finanse/features/goals/domain/savings_goal.dart';
+import 'package:finanse/features/goals/presentation/goals_page.dart';
+import 'package:finanse/features/category_limits/data/category_limit_repository.dart';
+import 'package:finanse/features/category_limits/domain/category_limit.dart';
+import 'package:finanse/features/category_limits/presentation/category_limits_page.dart';
 import 'package:finanse/features/planning/data/monthly_plan_repository.dart';
 import 'package:finanse/features/planning/domain/monthly_financial_summary.dart';
 import 'package:finanse/features/planning/domain/monthly_plan.dart';
@@ -36,6 +43,9 @@ class _HomePageState extends State<HomePage> {
   final ReserveRepository _reserveRepository = ReserveRepository();
   final IncomeRepository _incomeRepository = IncomeRepository();
   final MonthlyPlanRepository _monthlyPlanRepository = MonthlyPlanRepository();
+  final GoalRepository _goalRepository = GoalRepository();
+  final CategoryLimitRepository _categoryLimitRepository =
+      CategoryLimitRepository();
 
   late final NumberFormat _currencyFormatter;
 
@@ -46,8 +56,10 @@ class _HomePageState extends State<HomePage> {
   double _previousPeriodTotal = 0;
   double _monthTotal = 0;
   double? _monthlyLimit;
+  int _monthlyWarningPercent = 70;
   int _monthlyIncomeCents = 0;
   int _allocatedFromResultCents = 0;
+  int _allocatedToGoalsCents = 0;
   double _savingsReserve = 0;
 
   bool _showSavingsReserve = false;
@@ -56,6 +68,7 @@ class _HomePageState extends State<HomePage> {
   int _loadRequestId = 0;
 
   List<Expense> _recentExpenses = <Expense>[];
+  List<CategoryLimitSummary> _categoryLimitSummaries = <CategoryLimitSummary>[];
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -119,6 +132,10 @@ class _HomePageState extends State<HomePage> {
           .getTotalCentsForMonth(currentMonth);
       final int allocatedFromResultCents = await _reserveRepository
           .getAllocatedCentsForMonth(MonthlyPlan.keyFor(currentMonth));
+      final int allocatedToGoalsCents = await _goalRepository
+          .getAllocatedCentsForMonth(MonthlyPlan.keyFor(currentMonth));
+      final List<CategoryLimitSummary> categoryLimitSummaries =
+          await _categoryLimitRepository.getSummariesForMonth(currentMonth);
 
       final double legacyReserve = preferences.getDouble('savingsReserve') ?? 0;
 
@@ -158,8 +175,10 @@ class _HomePageState extends State<HomePage> {
 
       setState(() {
         _monthlyLimit = monthlyPlan?.spendingLimit;
+        _monthlyWarningPercent = monthlyPlan?.warningPercent ?? 70;
         _monthlyIncomeCents = monthlyIncomeCents;
         _allocatedFromResultCents = allocatedFromResultCents;
+        _allocatedToGoalsCents = allocatedToGoalsCents;
         _savingsReserve = savedReserve >= 0 ? savedReserve : 0;
         _userName = savedUserName;
 
@@ -169,6 +188,7 @@ class _HomePageState extends State<HomePage> {
         _periodCount = periodExpenses.length;
 
         _recentExpenses = periodExpenses.take(5).toList(growable: false);
+        _categoryLimitSummaries = categoryLimitSummaries;
 
         _isLoading = false;
         _errorMessage = null;
@@ -998,6 +1018,141 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _openGoals() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const GoalsPage()));
+    if (mounted) await _loadData(showLoading: false);
+  }
+
+  Future<void> _openCategoryLimits() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const CategoryLimitsPage()));
+    if (mounted) await _loadData(showLoading: false);
+  }
+
+  Future<void> _allocateResultToGoal(int availableResultCents) async {
+    if (availableResultCents <= 0) return;
+    final List<GoalProgress> goals = await _goalRepository
+        .getGoalsWithProgress();
+    final List<GoalProgress> activeGoals = goals
+        .where(
+          (GoalProgress item) => item.goal.status == SavingsGoalStatus.active,
+        )
+        .toList(growable: false);
+    if (!mounted) return;
+
+    if (activeGoals.isEmpty) {
+      final bool createGoal =
+          await showDialog<bool>(
+            context: context,
+            builder: (BuildContext dialogContext) => AlertDialog(
+              icon: const Icon(Icons.flag_outlined),
+              title: const Text('Crie uma meta primeiro'),
+              content: const Text(
+                'Depois de criar uma meta ativa, você poderá destinar parte da sobra do mês sem registrar um novo gasto.',
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Agora não'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Ver metas'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+      if (createGoal && mounted) await _openGoals();
+      return;
+    }
+
+    final GoalProgress? selectedGoal = await showModalBottomSheet<GoalProgress>(
+      context: context,
+      useSafeArea: true,
+      builder: (BuildContext sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.xl,
+          AppSpacing.lg,
+          AppSpacing.xl,
+          AppSpacing.xl,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'Escolha uma meta',
+              style: Theme.of(sheetContext).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: activeGoals
+                    .map(
+                      (GoalProgress goal) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const CircleAvatar(
+                          child: Icon(Icons.flag_outlined),
+                        ),
+                        title: Text(goal.goal.name),
+                        subtitle: Text(
+                          '${_currencyFormatter.format(goal.savedCents / 100)} de ${_currencyFormatter.format(goal.goal.target)}',
+                        ),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => Navigator.pop(sheetContext, goal),
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selectedGoal == null || !mounted) return;
+
+    final double? amount = await _requestReserveValue(
+      title: 'Destinar para ${selectedGoal.goal.name}',
+      description:
+          'Disponível neste mês: ${_currencyFormatter.format(availableResultCents / 100)}. O aporte ficará no histórico da meta e não será contado como gasto.',
+      buttonLabel: 'Destinar',
+      allowZero: false,
+      initialValue: availableResultCents / 100,
+    );
+    if (amount == null || !mounted) return;
+    final int amountCents = (amount * 100).round();
+    if (amountCents > availableResultCents) {
+      _showErrorMessage('O valor ultrapassa a sobra disponível neste mês.');
+      return;
+    }
+
+    try {
+      final DateTime now = DateTime.now();
+      await _goalRepository.allocate(
+        goalId: selectedGoal.goal.id,
+        amountCents: amountCents,
+        originYearMonth: MonthlyPlan.keyFor(now),
+        note: 'Destinação do resultado de ${MonthlyPlan.keyFor(now)}.',
+      );
+      notifyFinancialPlanChanged();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Valor destinado para ${selectedGoal.goal.name} sem alterar os gastos.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted) _showErrorMessage('Não foi possível registrar o aporte.');
+    }
+  }
+
   Future<void> _allocateResultToReserve(int availableResultCents) async {
     if (availableResultCents <= 0) {
       return;
@@ -1018,36 +1173,8 @@ class _HomePageState extends State<HomePage> {
 
     final int amountCents = (amount * 100).round();
     if (amountCents > availableResultCents) {
-      final bool confirmed =
-          await showDialog<bool>(
-            context: context,
-            builder: (BuildContext dialogContext) {
-              return AlertDialog(
-                icon: const Icon(
-                  Icons.warning_amber_rounded,
-                  color: AppColors.warning,
-                ),
-                title: const Text('Valor acima do resultado disponível'),
-                content: Text(
-                  'O resultado ainda disponível é ${_currencyFormatter.format(availableResultCents / 100)}. Deseja registrar mesmo assim?',
-                ),
-                actions: <Widget>[
-                  TextButton(
-                    onPressed: () => Navigator.pop(dialogContext, false),
-                    child: const Text('Voltar'),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(dialogContext, true),
-                    child: const Text('Confirmar'),
-                  ),
-                ],
-              );
-            },
-          ) ??
-          false;
-      if (!confirmed) {
-        return;
-      }
+      _showErrorMessage('O valor ultrapassa a sobra disponível neste mês.');
+      return;
     }
 
     try {
@@ -1079,9 +1206,10 @@ class _HomePageState extends State<HomePage> {
     MonthlyFinancialSummary summary,
   ) {
     final int? resultCents = summary.currentResultCents;
-    final int availableForReserveCents = resultCents == null || resultCents <= 0
+    final int availableResultCents = resultCents == null || resultCents <= 0
         ? 0
-        : (resultCents - _allocatedFromResultCents).clamp(0, resultCents);
+        : (resultCents - _allocatedFromResultCents - _allocatedToGoalsCents)
+              .clamp(0, resultCents);
 
     final (Color, IconData, String) status = switch (summary.status) {
       MonthlyFinancialStatus.positive => (
@@ -1179,6 +1307,18 @@ class _HomePageState extends State<HomePage> {
                     : AppColors.success,
                 emphasize: true,
               ),
+            if (_allocatedFromResultCents > 0)
+              _FinancialValueRow(
+                label: 'Destinado à reserva',
+                value: _currencyFormatter.format(
+                  _allocatedFromResultCents / 100,
+                ),
+              ),
+            if (_allocatedToGoalsCents > 0)
+              _FinancialValueRow(
+                label: 'Destinado às metas',
+                value: _currencyFormatter.format(_allocatedToGoalsCents / 100),
+              ),
             const SizedBox(height: AppSpacing.sm),
             Container(
               padding: const EdgeInsets.all(AppSpacing.sm),
@@ -1209,17 +1349,26 @@ class _HomePageState extends State<HomePage> {
                 color: AppColors.textMuted(context),
               ),
             ),
-            if (availableForReserveCents > 0) ...<Widget>[
+            if (availableResultCents > 0) ...<Widget>[
               const SizedBox(height: AppSpacing.md),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () =>
-                      _allocateResultToReserve(availableForReserveCents),
+                      _allocateResultToReserve(availableResultCents),
                   icon: const Icon(Icons.savings_outlined),
                   label: Text(
-                    'Destinar até ${_currencyFormatter.format(availableForReserveCents / 100)} para a reserva',
+                    'Destinar até ${_currencyFormatter.format(availableResultCents / 100)} para a reserva',
                   ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.tonalIcon(
+                  onPressed: () => _allocateResultToGoal(availableResultCents),
+                  icon: const Icon(Icons.flag_outlined),
+                  label: const Text('Destinar para uma meta'),
                 ),
               ),
             ],
@@ -1233,6 +1382,107 @@ class _HomePageState extends State<HomePage> {
     final String formatted = _currencyFormatter.format(cents.abs() / 100);
     return cents < 0 ? '-$formatted' : formatted;
   }
+
+  Widget? _buildCategoryLimitsOverview(ThemeData theme) {
+    final List<CategoryLimitSummary> configured =
+        _categoryLimitSummaries
+            .where((CategoryLimitSummary item) => item.limit != null)
+            .toList(growable: false)
+          ..sort((CategoryLimitSummary first, CategoryLimitSummary second) {
+            final int statusComparison = _categoryStatusWeight(
+              second.status,
+            ).compareTo(_categoryStatusWeight(first.status));
+            return statusComparison != 0
+                ? statusComparison
+                : second.spentCents.compareTo(first.spentCents);
+          });
+    if (configured.isEmpty) return null;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    'Limites por categoria',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                TextButton(
+                  onPressed: _openCategoryLimits,
+                  child: const Text('Ver todos'),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            ...configured.take(3).map((CategoryLimitSummary summary) {
+              final Color color = switch (summary.status) {
+                CategoryLimitStatus.comfortable => AppColors.success,
+                CategoryLimitStatus.attention => AppColors.warning,
+                CategoryLimitStatus.exceeded => AppColors.error,
+                CategoryLimitStatus.unconfigured => AppColors.information,
+              };
+              final String statusText = switch (summary.status) {
+                CategoryLimitStatus.comfortable => 'Dentro do planejado',
+                CategoryLimitStatus.attention =>
+                  'Atenção: ${summary.limit!.warningPercent}% atingidos',
+                CategoryLimitStatus.exceeded => 'Limite ultrapassado',
+                CategoryLimitStatus.unconfigured => 'Sem limite',
+              };
+              return Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            summary.categoryName,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        Text(
+                          '${_currencyFormatter.format(summary.spentCents / 100)} / ${_currencyFormatter.format(summary.limit!.limitCents / 100)}',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    LinearProgressIndicator(
+                      value: (summary.progress ?? 0).clamp(0, 1),
+                      minHeight: 7,
+                      borderRadius: BorderRadius.circular(99),
+                      color: color,
+                    ),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      statusText,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _categoryStatusWeight(CategoryLimitStatus status) => switch (status) {
+    CategoryLimitStatus.exceeded => 3,
+    CategoryLimitStatus.attention => 2,
+    CategoryLimitStatus.comfortable => 1,
+    CategoryLimitStatus.unconfigured => 0,
+  };
 
   Widget _buildSavingsReserveCard(ThemeData theme) {
     final String reserveText = _showSavingsReserve
@@ -1343,6 +1593,7 @@ class _HomePageState extends State<HomePage> {
     final _LimitStatus limitStatus = _getLimitStatus(
       rawLimitProgress,
       primaryColor,
+      _monthlyWarningPercent,
     );
 
     final double limitDifference = hasMonthlyLimit
@@ -1355,7 +1606,9 @@ class _HomePageState extends State<HomePage> {
       incomeTotalCents: _monthlyIncomeCents,
       spendingLimitCents: hasMonthlyLimit ? (monthlyLimit * 100).round() : null,
       spentCents: (_monthTotal * 100).round(),
+      warningPercent: _monthlyWarningPercent,
     );
+    final Widget? categoryLimitsOverview = _buildCategoryLimitsOverview(theme);
 
     final String limitMainText = isOverLimit
         ? '${_currencyFormatter.format(limitDifference.abs())} '
@@ -1386,6 +1639,10 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: AppSpacing.md),
           _buildFinancialOverview(theme, financialSummary),
           const SizedBox(height: AppSpacing.md),
+          if (categoryLimitsOverview != null) ...<Widget>[
+            categoryLimitsOverview,
+            const SizedBox(height: AppSpacing.md),
+          ],
           _buildSavingsReserveCard(theme),
           const SizedBox(height: AppSpacing.xxl),
           if (hasMonthlyLimit)
@@ -1766,8 +2023,12 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  _LimitStatus _getLimitStatus(double progress, Color primaryColor) {
-    if (progress < 0.70) {
+  _LimitStatus _getLimitStatus(
+    double progress,
+    Color primaryColor,
+    int warningPercent,
+  ) {
+    if (progress < warningPercent / 100) {
       return _LimitStatus(
         color: primaryColor,
         icon: Icons.check_circle_outline_rounded,
@@ -1775,19 +2036,12 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    if (progress < 0.90) {
-      return const _LimitStatus(
+    if (progress < 1) {
+      return _LimitStatus(
         color: AppColors.warning,
         icon: Icons.info_outline_rounded,
-        text: 'Atenção: você já utilizou mais de 70% do limite.',
-      );
-    }
-
-    if (progress < 1) {
-      return const _LimitStatus(
-        color: AppColors.error,
-        icon: Icons.warning_amber_rounded,
-        text: 'Alerta: você está próximo de atingir o limite.',
+        text:
+            'Atenção: você já utilizou pelo menos $warningPercent% do limite.',
       );
     }
 

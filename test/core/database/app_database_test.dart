@@ -31,7 +31,7 @@ void main() {
 
   group('AppDatabase', () {
     test(
-      'migra o banco da versão 1 para a versão 6 preservando despesas',
+      'migra o banco da versão 1 para a versão 7 preservando despesas',
       () async {
         final Database oldDatabase = await databaseFactoryFfi.openDatabase(
           databasePath,
@@ -73,7 +73,7 @@ void main() {
 
         final Database migratedDatabase = await AppDatabase.instance.database;
 
-        expect(await migratedDatabase.getVersion(), 6);
+        expect(await migratedDatabase.getVersion(), 7);
 
         final List<Map<String, Object?>> expenseColumns = await migratedDatabase
             .rawQuery('PRAGMA table_info(expenses)');
@@ -160,16 +160,38 @@ void main() {
               'idx_reserve_transactions_created_at',
               'idx_reserve_transactions_origin_month',
               'idx_incomes_date',
-              'idx_incomes_recurrence'
+              'idx_incomes_recurrence',
+              'idx_savings_goals_status',
+              'idx_goal_transactions_goal',
+              'idx_goal_transactions_origin_month',
+              'idx_category_limits_month'
             )
           ''');
 
-        expect(indexes, hasLength(10));
+        expect(indexes, hasLength(14));
+
+        final Set<String> goalAndLimitTables = (await migratedDatabase.rawQuery(
+          '''
+          SELECT name FROM sqlite_master
+          WHERE type = 'table' AND name IN (?, ?, ?)
+          ''',
+          <Object?>[
+            AppDatabase.savingsGoalsTable,
+            AppDatabase.goalTransactionsTable,
+            AppDatabase.categoryLimitsTable,
+          ],
+        )).map((Map<String, Object?> row) => row['name'].toString()).toSet();
+        expect(goalAndLimitTables, hasLength(3));
+
+        final Set<String> planColumns = (await migratedDatabase.rawQuery(
+          'PRAGMA table_info(${AppDatabase.monthlyPlansTable})',
+        )).map((Map<String, Object?> row) => row['name'].toString()).toSet();
+        expect(planColumns, contains('warningPercent'));
       },
     );
 
     test(
-      'migra o banco da versão 2 para a versão 6 preservando despesas',
+      'migra o banco da versão 2 para a versão 7 preservando despesas',
       () async {
         final Database oldDatabase = await databaseFactoryFfi.openDatabase(
           databasePath,
@@ -213,7 +235,7 @@ void main() {
 
         final Database migratedDatabase = await AppDatabase.instance.database;
 
-        expect(await migratedDatabase.getVersion(), 6);
+        expect(await migratedDatabase.getVersion(), 7);
 
         final List<Map<String, Object?>> expenses = await migratedDatabase
             .query(AppDatabase.expensesTable);
@@ -273,7 +295,7 @@ void main() {
       await oldDatabase.close();
 
       final Database migratedDatabase = await AppDatabase.instance.database;
-      expect(await migratedDatabase.getVersion(), 6);
+      expect(await migratedDatabase.getVersion(), 7);
 
       final List<Map<String, Object?>> reserveRows = await migratedDatabase
           .query(AppDatabase.reserveTransactionsTable);
@@ -283,6 +305,61 @@ void main() {
       expect(await migratedDatabase.query(AppDatabase.incomesTable), isEmpty);
       expect(
         await migratedDatabase.query(AppDatabase.monthlyPlansTable),
+        isEmpty,
+      );
+    });
+
+    test('migra a versão 6 preservando rendas e planejamento mensal', () async {
+      final Database oldDatabase = await databaseFactoryFfi.openDatabase(
+        databasePath,
+        options: OpenDatabaseOptions(
+          version: 6,
+          onCreate: (Database database, int version) async {
+            await _createVersion6Schema(database);
+          },
+        ),
+      );
+      final DateTime createdAt = DateTime(2026, 8, 1);
+      await oldDatabase.insert(AppDatabase.incomesTable, <String, Object?>{
+        'id': 'income-before-v7',
+        'amountCents': 500000,
+        'source': 'Salário',
+        'date': createdAt.toIso8601String(),
+        'recurrence': 'monthly',
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': createdAt.toIso8601String(),
+      });
+      await oldDatabase.insert(AppDatabase.monthlyPlansTable, <String, Object?>{
+        'yearMonth': '2026-08',
+        'spendingLimitCents': 200000,
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': createdAt.toIso8601String(),
+      });
+      await oldDatabase.close();
+
+      final Database migratedDatabase = await AppDatabase.instance.database;
+      expect(await migratedDatabase.getVersion(), 7);
+
+      final Map<String, Object?> income = (await migratedDatabase.query(
+        AppDatabase.incomesTable,
+      )).single;
+      final Map<String, Object?> plan = (await migratedDatabase.query(
+        AppDatabase.monthlyPlansTable,
+      )).single;
+      expect(income['id'], 'income-before-v7');
+      expect(income['amountCents'], 500000);
+      expect(plan['spendingLimitCents'], 200000);
+      expect(plan['warningPercent'], 70);
+      expect(
+        await migratedDatabase.query(AppDatabase.savingsGoalsTable),
+        isEmpty,
+      );
+      expect(
+        await migratedDatabase.query(AppDatabase.goalTransactionsTable),
+        isEmpty,
+      );
+      expect(
+        await migratedDatabase.query(AppDatabase.categoryLimitsTable),
         isEmpty,
       );
     });
@@ -371,4 +448,31 @@ Future<void> _createVersion5Schema(
   if (createBrokenIncomeTable) {
     await database.execute('CREATE TABLE incomes (id TEXT PRIMARY KEY)');
   }
+}
+
+Future<void> _createVersion6Schema(Database database) async {
+  await _createVersion5Schema(database);
+  await database.execute('''
+    ALTER TABLE ${AppDatabase.reserveTransactionsTable}
+    ADD COLUMN originYearMonth TEXT
+  ''');
+  await database.execute('''
+    CREATE TABLE ${AppDatabase.incomesTable} (
+      id TEXT PRIMARY KEY,
+      amountCents INTEGER NOT NULL,
+      source TEXT NOT NULL,
+      date TEXT NOT NULL,
+      recurrence TEXT NOT NULL,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    )
+  ''');
+  await database.execute('''
+    CREATE TABLE ${AppDatabase.monthlyPlansTable} (
+      yearMonth TEXT PRIMARY KEY,
+      spendingLimitCents INTEGER NOT NULL,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    )
+  ''');
 }

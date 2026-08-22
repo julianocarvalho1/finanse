@@ -13,11 +13,13 @@ class MonthlyFinancialSummary {
     required this.incomeTotalCents,
     required this.spentCents,
     this.spendingLimitCents,
+    this.warningPercent = 70,
   });
 
   final int incomeTotalCents;
   final int spentCents;
   final int? spendingLimitCents;
+  final int warningPercent;
 
   bool get hasIncome => incomeTotalCents > 0;
   bool get hasLimit => (spendingLimitCents ?? 0) > 0;
@@ -45,7 +47,7 @@ class MonthlyFinancialSummary {
     if (overLimitCents > 0) {
       return MonthlyFinancialStatus.limitExceeded;
     }
-    if (hasLimit && spentCents / spendingLimitCents! >= 0.7) {
+    if (hasLimit && spentCents / spendingLimitCents! >= warningPercent / 100) {
       return MonthlyFinancialStatus.attention;
     }
     if (result != null && result >= 0) {

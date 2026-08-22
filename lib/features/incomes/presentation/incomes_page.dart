@@ -167,73 +167,118 @@ class _IncomesPageState extends State<IncomesPage> {
             ).format(_plan!.spendingLimit).trim(),
     );
     String? errorMessage;
+    int warningPercent = _plan?.warningPercent ?? 70;
 
-    final int? cents = await showDialog<int>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setDialogState) {
-            void submit() {
-              final int value =
-                  int.tryParse(
-                    controller.text.replaceAll(RegExp(r'[^0-9]'), ''),
-                  ) ??
-                  0;
-              if (value <= 0) {
-                setDialogState(() {
-                  errorMessage = 'Digite um valor maior que zero.';
-                });
-                return;
-              }
-              Navigator.pop(dialogContext, value);
-            }
+    final ({int cents, int warningPercent})? result =
+        await showDialog<({int cents, int warningPercent})>(
+          context: context,
+          builder: (BuildContext dialogContext) {
+            return StatefulBuilder(
+              builder: (BuildContext context, StateSetter setDialogState) {
+                void submit() {
+                  final int value =
+                      int.tryParse(
+                        controller.text.replaceAll(RegExp(r'[^0-9]'), ''),
+                      ) ??
+                      0;
+                  if (value <= 0) {
+                    setDialogState(() {
+                      errorMessage = 'Digite um valor maior que zero.';
+                    });
+                    return;
+                  }
+                  Navigator.pop(dialogContext, (
+                    cents: value,
+                    warningPercent: warningPercent,
+                  ));
+                }
 
-            return AlertDialog(
-              title: const Text('Limite do mês'),
-              content: TextField(
-                controller: controller,
-                autofocus: true,
-                keyboardType: TextInputType.number,
-                inputFormatters: <TextInputFormatter>[
-                  CurrencyInputFormatter(
-                    maximumValueInCents:
-                        _IncomeFormSheetState._maximumAmountInCents,
+                return AlertDialog(
+                  title: const Text('Limite do mês'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      TextField(
+                        controller: controller,
+                        autofocus: true,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: <TextInputFormatter>[
+                          CurrencyInputFormatter(
+                            maximumValueInCents:
+                                _IncomeFormSheetState._maximumAmountInCents,
+                          ),
+                        ],
+                        decoration: InputDecoration(
+                          labelText: 'Quanto você planeja gastar?',
+                          prefixText: 'R\$ ',
+                          errorText: errorMessage,
+                        ),
+                        onSubmitted: (_) => submit(),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      DropdownButtonFormField<int>(
+                        initialValue: warningPercent,
+                        decoration: const InputDecoration(
+                          labelText: 'Avisar a partir de',
+                        ),
+                        items: const <int>[50, 60, 70, 80, 90, 100]
+                            .map(
+                              (int value) => DropdownMenuItem<int>(
+                                value: value,
+                                child: Text('$value% do limite'),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (int? value) {
+                          if (value != null) {
+                            setDialogState(() => warningPercent = value);
+                          }
+                        },
+                      ),
+                    ],
                   ),
-                ],
-                decoration: InputDecoration(
-                  labelText: 'Quanto você planeja gastar?',
-                  prefixText: 'R\$ ',
-                  errorText: errorMessage,
-                ),
-                onSubmitted: (_) => submit(),
-              ),
-              actions: <Widget>[
-                if (_plan != null)
-                  TextButton(
-                    onPressed: () => Navigator.pop(dialogContext, 0),
-                    child: const Text('Remover limite'),
-                  ),
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton(onPressed: submit, child: const Text('Salvar')),
-              ],
+                  actions: <Widget>[
+                    if (_plan != null)
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, (
+                          cents: 0,
+                          warningPercent: warningPercent,
+                        )),
+                        child: const Text('Remover limite'),
+                      ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('Cancelar'),
+                    ),
+                    FilledButton(
+                      onPressed: submit,
+                      child: const Text('Salvar'),
+                    ),
+                  ],
+                );
+              },
             );
           },
         );
-      },
-    );
     controller.dispose();
 
-    if (cents == null) return;
-    if (cents == 0) {
-      await _planRepository.deletePlanForMonth(_selectedMonth);
-    } else {
-      await _planRepository.saveLimit(
-        month: _selectedMonth,
-        spendingLimitCents: cents,
-      );
+    if (result == null) return;
+    try {
+      if (result.cents == 0) {
+        await _planRepository.deletePlanForMonth(_selectedMonth);
+      } else {
+        await _planRepository.saveLimit(
+          month: _selectedMonth,
+          spendingLimitCents: result.cents,
+          warningPercent: result.warningPercent,
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_incomeErrorMessage(error))));
+      return;
     }
     notifyFinancialPlanChanged();
     await _loadIncomes();
@@ -248,6 +293,7 @@ class _IncomesPageState extends State<IncomesPage> {
     await _planRepository.saveLimit(
       month: _selectedMonth,
       spendingLimitCents: suggestion.spendingLimitCents,
+      warningPercent: suggestion.warningPercent,
     );
     notifyFinancialPlanChanged();
     await _loadIncomes();
@@ -433,9 +479,8 @@ class _IncomesPageState extends State<IncomesPage> {
                       ),
                       title: Text(income.source),
                       subtitle: Text(dateLabel),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
                           Text(
                             _currency.format(income.amount),
@@ -443,6 +488,7 @@ class _IncomesPageState extends State<IncomesPage> {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
+                          const SizedBox(width: AppSpacing.xs),
                           PopupMenuButton<String>(
                             padding: EdgeInsets.zero,
                             tooltip: 'Opções da renda',
@@ -734,4 +780,14 @@ class _IncomeMessage extends StatelessWidget {
       ),
     );
   }
+}
+
+String _incomeErrorMessage(Object error) {
+  if (error is StateError || error is ArgumentError) {
+    return error.toString().replaceFirst(
+      RegExp(r'^(Bad state|Invalid argument): '),
+      '',
+    );
+  }
+  return 'Não foi possível salvar o limite.';
 }

@@ -2,12 +2,14 @@ class MonthlyPlan {
   const MonthlyPlan({
     required this.yearMonth,
     required this.spendingLimitCents,
+    this.warningPercent = 70,
     required this.createdAt,
     required this.updatedAt,
   });
 
   final String yearMonth;
   final int spendingLimitCents;
+  final int warningPercent;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -22,6 +24,7 @@ class MonthlyPlan {
     return <String, Object?>{
       'yearMonth': yearMonth,
       'spendingLimitCents': spendingLimitCents,
+      'warningPercent': warningPercent,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -33,6 +36,7 @@ class MonthlyPlan {
     return MonthlyPlan(
       yearMonth: map['yearMonth']?.toString() ?? '',
       spendingLimitCents: (map['spendingLimitCents'] as num?)?.toInt() ?? 0,
+      warningPercent: (map['warningPercent'] as num?)?.toInt() ?? 70,
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? '') ?? now,
       updatedAt: DateTime.tryParse(map['updatedAt']?.toString() ?? '') ?? now,
     );

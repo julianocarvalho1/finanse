@@ -68,10 +68,30 @@ void main() {
       income: 500000,
       spent: 180000,
       allocated: 120000,
+      allocatedToGoals: 50000,
     );
 
     expect(snapshot.resultCents, 320000);
-    expect(snapshot.availableToReserveCents, 200000);
+    expect(snapshot.totalAllocatedCents, 170000);
+    expect(snapshot.availableToReserveCents, 150000);
+    expect(snapshot.overallocatedCents, 0);
+    expect(snapshot.distributionBasisCents, 320000);
+  });
+
+  test('expõe excesso quando correções reduzem um resultado já destinado', () {
+    final MonthlyEvolutionSnapshot snapshot = _snapshot(
+      month: DateTime(2026, 8),
+      income: 500000,
+      spent: 420000,
+      allocated: 50000,
+      allocatedToGoals: 60000,
+    );
+
+    expect(snapshot.resultCents, 80000);
+    expect(snapshot.totalAllocatedCents, 110000);
+    expect(snapshot.availableToReserveCents, 0);
+    expect(snapshot.overallocatedCents, 30000);
+    expect(snapshot.distributionBasisCents, 110000);
   });
 }
 
@@ -80,6 +100,7 @@ MonthlyEvolutionSnapshot _snapshot({
   required int income,
   required int spent,
   int allocated = 0,
+  int allocatedToGoals = 0,
 }) {
   return MonthlyEvolutionSnapshot(
     month: month,
@@ -87,5 +108,6 @@ MonthlyEvolutionSnapshot _snapshot({
     spentCents: spent,
     spendingLimitCents: 200000,
     allocatedToReserveCents: allocated,
+    allocatedToGoalsCents: allocatedToGoals,
   );
 }

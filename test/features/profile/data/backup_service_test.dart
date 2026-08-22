@@ -98,8 +98,47 @@ void main() {
       CREATE TABLE ${AppDatabase.monthlyPlansTable} (
         yearMonth TEXT PRIMARY KEY,
         spendingLimitCents INTEGER NOT NULL,
+        warningPercent INTEGER NOT NULL DEFAULT 70,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL
+      )
+    ''');
+
+    await database.execute('''
+      CREATE TABLE ${AppDatabase.savingsGoalsTable} (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        targetCents INTEGER NOT NULL,
+        deadline TEXT,
+        status TEXT NOT NULL,
+        completedAt TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      )
+    ''');
+
+    await database.execute('''
+      CREATE TABLE ${AppDatabase.goalTransactionsTable} (
+        id TEXT PRIMARY KEY,
+        goalId TEXT NOT NULL,
+        type TEXT NOT NULL,
+        changeCents INTEGER NOT NULL,
+        balanceAfterCents INTEGER NOT NULL,
+        originYearMonth TEXT,
+        note TEXT,
+        createdAt TEXT NOT NULL
+      )
+    ''');
+
+    await database.execute('''
+      CREATE TABLE ${AppDatabase.categoryLimitsTable} (
+        yearMonth TEXT NOT NULL,
+        categoryName TEXT NOT NULL,
+        limitCents INTEGER NOT NULL,
+        warningPercent INTEGER NOT NULL DEFAULT 70,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        PRIMARY KEY(yearMonth, categoryName)
       )
     ''');
 
@@ -168,9 +207,40 @@ void main() {
         await database.insert(AppDatabase.monthlyPlansTable, <String, Object?>{
           'yearMonth': '2026-07',
           'spendingLimitCents': 200000,
+          'warningPercent': 80,
           'createdAt': DateTime(2026, 7, 1).toIso8601String(),
           'updatedAt': DateTime(2026, 7, 1).toIso8601String(),
         });
+        await database.insert(AppDatabase.savingsGoalsTable, <String, Object?>{
+          'id': 'goal-backup-1',
+          'name': 'Viagem',
+          'targetCents': 300000,
+          'deadline': DateTime(2027, 1, 1).toIso8601String(),
+          'status': 'active',
+          'completedAt': null,
+          'createdAt': DateTime(2026, 7, 1).toIso8601String(),
+          'updatedAt': DateTime(2026, 7, 1).toIso8601String(),
+        });
+        await database
+            .insert(AppDatabase.goalTransactionsTable, <String, Object?>{
+              'id': 'goal-transaction-backup-1',
+              'goalId': 'goal-backup-1',
+              'type': 'allocation',
+              'changeCents': 50000,
+              'balanceAfterCents': 50000,
+              'originYearMonth': '2026-07',
+              'note': 'Primeiro aporte',
+              'createdAt': DateTime(2026, 7, 20).toIso8601String(),
+            });
+        await database
+            .insert(AppDatabase.categoryLimitsTable, <String, Object?>{
+              'yearMonth': '2026-07',
+              'categoryName': 'Alimentação',
+              'limitCents': 60000,
+              'warningPercent': 75,
+              'createdAt': DateTime(2026, 7, 1).toIso8601String(),
+              'updatedAt': DateTime(2026, 7, 1).toIso8601String(),
+            });
 
         final CreatedBackup backup = await backupService.createBackup();
 
@@ -184,7 +254,10 @@ void main() {
         expect(backup.recurringExpenseCount, 1);
         expect(backup.incomeCount, 1);
         expect(backup.monthlyPlanCount, 1);
-        expect(backup.totalRecordCount, 4);
+        expect(backup.goalCount, 1);
+        expect(backup.goalTransactionCount, 1);
+        expect(backup.categoryLimitCount, 1);
+        expect(backup.totalRecordCount, 7);
 
         final String fileContent = await backup.file.readAsString(
           encoding: utf8,
@@ -195,8 +268,8 @@ void main() {
         );
 
         expect(document['signature'], 'FINANSE_BACKUP');
-        expect(document['formatVersion'], 4);
-        expect(document['databaseVersion'], 6);
+        expect(document['formatVersion'], 5);
+        expect(document['databaseVersion'], 7);
 
         expect(
           DateTime.parse(document['createdAt'] as String),
@@ -212,6 +285,9 @@ void main() {
         expect(integrity['reserveTransactionCount'], 0);
         expect(integrity['incomeCount'], 1);
         expect(integrity['monthlyPlanCount'], 1);
+        expect(integrity['savingsGoalCount'], 1);
+        expect(integrity['goalTransactionCount'], 1);
+        expect(integrity['categoryLimitCount'], 1);
         expect(
           integrity['checksum'],
           isA<String>().having(
@@ -234,6 +310,12 @@ void main() {
         final List<dynamic> incomes = payload['incomes'] as List<dynamic>;
         final List<dynamic> monthlyPlans =
             payload['monthlyPlans'] as List<dynamic>;
+        final List<dynamic> savingsGoals =
+            payload['savingsGoals'] as List<dynamic>;
+        final List<dynamic> goalTransactions =
+            payload['goalTransactions'] as List<dynamic>;
+        final List<dynamic> categoryLimits =
+            payload['categoryLimits'] as List<dynamic>;
 
         final Map<String, dynamic> preferences = Map<String, dynamic>.from(
           payload['preferences'] as Map,
@@ -244,8 +326,15 @@ void main() {
         expect(reserveTransactions, isEmpty);
         expect(incomes, hasLength(1));
         expect(monthlyPlans, hasLength(1));
+        expect(savingsGoals, hasLength(1));
+        expect(goalTransactions, hasLength(1));
+        expect(categoryLimits, hasLength(1));
         expect((incomes.first as Map)['amountCents'], 500000);
         expect((monthlyPlans.first as Map)['spendingLimitCents'], 200000);
+        expect((monthlyPlans.first as Map)['warningPercent'], 80);
+        expect((savingsGoals.first as Map)['name'], 'Viagem');
+        expect((goalTransactions.first as Map)['changeCents'], 50000);
+        expect((categoryLimits.first as Map)['warningPercent'], 75);
 
         expect((expenses.first as Map)['id'], 'expense-backup-1');
 
@@ -325,6 +414,36 @@ void main() {
       await database.insert(AppDatabase.monthlyPlansTable, <String, Object?>{
         'yearMonth': '2026-07',
         'spendingLimitCents': 200000,
+        'warningPercent': 70,
+        'createdAt': DateTime(2026, 7, 1).toIso8601String(),
+        'updatedAt': DateTime(2026, 7, 1).toIso8601String(),
+      });
+      await database.insert(AppDatabase.savingsGoalsTable, <String, Object?>{
+        'id': 'goal-original',
+        'name': 'Reserva para curso',
+        'targetCents': 150000,
+        'deadline': null,
+        'status': 'paused',
+        'completedAt': null,
+        'createdAt': DateTime(2026, 7, 1).toIso8601String(),
+        'updatedAt': DateTime(2026, 7, 2).toIso8601String(),
+      });
+      await database
+          .insert(AppDatabase.goalTransactionsTable, <String, Object?>{
+            'id': 'goal-transaction-original',
+            'goalId': 'goal-original',
+            'type': 'allocation',
+            'changeCents': 25000,
+            'balanceAfterCents': 25000,
+            'originYearMonth': '2026-07',
+            'note': null,
+            'createdAt': DateTime(2026, 7, 10).toIso8601String(),
+          });
+      await database.insert(AppDatabase.categoryLimitsTable, <String, Object?>{
+        'yearMonth': '2026-07',
+        'categoryName': 'Moradia',
+        'limitCents': 100000,
+        'warningPercent': 80,
         'createdAt': DateTime(2026, 7, 1).toIso8601String(),
         'updatedAt': DateTime(2026, 7, 1).toIso8601String(),
       });
@@ -344,6 +463,9 @@ void main() {
       await database.delete(AppDatabase.recurringExpensesTable);
       await database.delete(AppDatabase.incomesTable);
       await database.delete(AppDatabase.monthlyPlansTable);
+      await database.delete(AppDatabase.goalTransactionsTable);
+      await database.delete(AppDatabase.savingsGoalsTable);
+      await database.delete(AppDatabase.categoryLimitsTable);
 
       await database.insert(AppDatabase.expensesTable, <String, Object?>{
         'id': 'expense-temporary',
@@ -384,7 +506,10 @@ void main() {
       expect(result.recurringExpenseCount, 1);
       expect(result.incomeCount, 1);
       expect(result.monthlyPlanCount, 1);
-      expect(result.totalRecordCount, 4);
+      expect(result.goalCount, 1);
+      expect(result.goalTransactionCount, 1);
+      expect(result.categoryLimitCount, 1);
+      expect(result.totalRecordCount, 7);
 
       final List<Map<String, Object?>> expenses = await database.query(
         AppDatabase.expensesTable,
@@ -399,6 +524,15 @@ void main() {
       final List<Map<String, Object?>> monthlyPlans = await database.query(
         AppDatabase.monthlyPlansTable,
       );
+      final List<Map<String, Object?>> savingsGoals = await database.query(
+        AppDatabase.savingsGoalsTable,
+      );
+      final List<Map<String, Object?>> goalTransactions = await database.query(
+        AppDatabase.goalTransactionsTable,
+      );
+      final List<Map<String, Object?>> categoryLimits = await database.query(
+        AppDatabase.categoryLimitsTable,
+      );
 
       expect(expenses, hasLength(1));
       expect(expenses.first['id'], 'expense-original');
@@ -410,6 +544,11 @@ void main() {
       expect(recurringExpenses.first['registeredCount'], 2);
       expect(incomes.single['amountCents'], 500000);
       expect(monthlyPlans.single['spendingLimitCents'], 200000);
+      expect(monthlyPlans.single['warningPercent'], 70);
+      expect(savingsGoals.single['name'], 'Reserva para curso');
+      expect(savingsGoals.single['status'], 'paused');
+      expect(goalTransactions.single['changeCents'], 25000);
+      expect(categoryLimits.single['warningPercent'], 80);
 
       expect(preferences.getBool('notificationsEnabled'), isTrue);
 
