@@ -123,15 +123,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ),
                 child: Row(
                   children: <Widget>[
-                    Text(
-                      'Finan\$e',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        color: primaryColor,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.4,
+                    Expanded(
+                      child: Text(
+                        'Finan\$e',
+                        maxLines: 1,
+                        overflow: TextOverflow.fade,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          color: primaryColor,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.4,
+                        ),
                       ),
                     ),
-                    const Spacer(),
                     TextButton(
                       onPressed: _isFinishing
                           ? null
@@ -160,76 +163,82 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   itemBuilder: (BuildContext context, int index) {
                     final _OnboardingItem item = _items[index];
 
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.pageHorizontal,
-                        AppSpacing.lg,
-                        AppSpacing.pageHorizontal,
-                        AppSpacing.lg,
-                      ),
-                      child: Column(
-                        children: <Widget>[
-                          const SizedBox(height: AppSpacing.md),
-                          _OnboardingIllustration(
-                            icon: item.icon,
-                            primaryColor: primaryColor,
-                            surfaceColor: surfaceColor,
-                            borderColor: borderColor,
-                          ),
-                          const SizedBox(height: AppSpacing.xxl),
-                          Text(
-                            item.title,
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              color: textPrimary,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.4,
+                    return Semantics(
+                      label:
+                          'Conteúdo da etapa ${index + 1} de ${_items.length}',
+                      container: true,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.pageHorizontal,
+                          AppSpacing.lg,
+                          AppSpacing.pageHorizontal,
+                          AppSpacing.lg,
+                        ),
+                        child: Column(
+                          children: <Widget>[
+                            const SizedBox(height: AppSpacing.md),
+                            _OnboardingIllustration(
+                              icon: item.icon,
+                              primaryColor: primaryColor,
+                              surfaceColor: surfaceColor,
+                              borderColor: borderColor,
                             ),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          Text(
-                            item.description,
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              color: textSecondary,
-                              height: 1.45,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.xl),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(AppSpacing.md),
-                            decoration: BoxDecoration(
-                              color: primaryColor.withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(
-                                AppSpacing.inputRadius,
-                              ),
-                              border: Border.all(
-                                color: primaryColor.withValues(alpha: 0.20),
+                            const SizedBox(height: AppSpacing.xxl),
+                            Text(
+                              item.title,
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                color: textPrimary,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.4,
                               ),
                             ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Icon(
-                                  Icons.lightbulb_outline_rounded,
-                                  size: 21,
-                                  color: primaryColor,
+                            const SizedBox(height: AppSpacing.md),
+                            Text(
+                              item.description,
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: textSecondary,
+                                height: 1.45,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.xl),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(AppSpacing.md),
+                              decoration: BoxDecoration(
+                                color: primaryColor.withValues(alpha: 0.10),
+                                borderRadius: BorderRadius.circular(
+                                  AppSpacing.inputRadius,
                                 ),
-                                const SizedBox(width: AppSpacing.sm),
-                                Expanded(
-                                  child: Text(
-                                    item.tip,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: textPrimary,
-                                      height: 1.35,
+                                border: Border.all(
+                                  color: primaryColor.withValues(alpha: 0.20),
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Icon(
+                                    Icons.lightbulb_outline_rounded,
+                                    size: 21,
+                                    color: primaryColor,
+                                  ),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  Expanded(
+                                    child: Text(
+                                      item.tip,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: textPrimary,
+                                            height: 1.35,
+                                          ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -244,25 +253,30 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ),
                 child: Column(
                   children: <Widget>[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List<Widget>.generate(_items.length, (
-                        int index,
-                      ) {
-                        final bool selected = index == _currentPage;
+                    Semantics(
+                      label: 'Etapa ${_currentPage + 1} de ${_items.length}',
+                      child: ExcludeSemantics(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List<Widget>.generate(_items.length, (
+                            int index,
+                          ) {
+                            final bool selected = index == _currentPage;
 
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 220),
-                          curve: Curves.easeOut,
-                          width: selected ? 24 : 8,
-                          height: 8,
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          decoration: BoxDecoration(
-                            color: selected ? primaryColor : borderColor,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        );
-                      }),
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOut,
+                              width: selected ? 24 : 8,
+                              height: 8,
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              decoration: BoxDecoration(
+                                color: selected ? primaryColor : borderColor,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            );
+                          }),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     SizedBox(

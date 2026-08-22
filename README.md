@@ -25,8 +25,9 @@ se conecta a bancos nem exige uma conta de usuário.
 > Os backups e relatórios exportados não são criptografados. Eles podem conter
 > dados financeiros legíveis e devem ser mantidos em destinos confiáveis.
 
-Consulte a [Política de Privacidade](docs/index.md) e o
-[Roadmap do produto](ROADMAP.md).
+Consulte a [Política de Privacidade](docs/index.md), o
+[Roadmap do produto](ROADMAP.md), a [matriz de qualidade](docs/QUALITY_MATRIX.md)
+e o [checklist de publicação](docs/RELEASE_CHECKLIST.md).
 
 ## Requisitos de desenvolvimento
 
@@ -48,7 +49,7 @@ Antes de enviar uma alteração:
 
 ```bash
 flutter analyze
-flutter test
+flutter test --coverage
 flutter build apk --debug
 ```
 

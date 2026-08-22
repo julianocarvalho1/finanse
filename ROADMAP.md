@@ -228,12 +228,30 @@ Objetivo: ajudar a pessoa a decidir para onde direcionar a sobra.
 - [ ] Adicionar testes de integração para onboarding, renda, gasto, PIN, backup e
   restauração.
 - [ ] Verificar acessibilidade, contraste, tamanhos de fonte e leitores de tela.
-- [ ] Testar migração com dados de versões anteriores.
+- [x] Testar migração com dados de todas as versões anteriores (1 a 6).
 - [ ] Testar aparelhos com Android 7 ou superior e diferentes tamanhos de tela.
 - [ ] Monitorar tamanho do AAB e atualizar dependências com segurança.
 - [ ] Manter política de privacidade, ficha da Play Store e comportamento do app
   sincronizados.
 - [ ] Fazer teste interno antes de cada envio à produção.
+
+### Primeiro ciclo da Fase 4
+
+- [x] Cobrir onboarding, cadastro de renda, cadastro de gasto e bloqueio por PIN
+  com testes de widgets.
+- [x] Cobrir criação, restauração e rejeição de backup corrompido na camada de
+  dados.
+- [x] Validar telas de 320 px com fonte em 200% nos fluxos cobertos.
+- [x] Garantir contraste mínimo de 4,5:1 para textos-base, erros e cores de tema.
+- [x] Validar automaticamente a configuração de suporte ao Android 7 (API 24),
+  permissões, backup desativado e proteção da assinatura release.
+- [x] Atualizar somente dependências compatíveis, sem saltos de versão principal.
+- [x] Gerar relatório de cobertura em toda execução do CI.
+- [ ] Validar leitor de tela em aparelho físico.
+- [ ] Executar a matriz manual em Android 7 e Android atual.
+- [ ] Medir o AAB somente quando o pacote de produção for autorizado.
+- [ ] Conferir a ficha e a seção Segurança dos dados no Play Console.
+- [ ] Concluir teste interno antes do próximo envio à produção.
 
 ## Definição de pronto para cada entrega
 

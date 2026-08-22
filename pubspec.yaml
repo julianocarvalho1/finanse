@@ -1,7 +1,7 @@
 name: finanse
 description: "Aplicativo de controle financeiro pessoal"
 publish_to: 'none'
-version: 1.0.2+3
+version: 1.1.0+3
 
 environment:
   sdk: ^3.12.2
